@@ -28,20 +28,33 @@ After building, Zensu generates compile assets under the `build/bin/` output dir
 
 ## Setup & Compilation
 
-### Requirements
-1. **Go 1.22+** (https://go.dev/dl/)
-2. **Node.js** (for building Vite frontend assets)
-3. **Wails CLI v2** (Installed via: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+To set up the development environment and compile Zensu, follow these steps:
 
-### Compile All Targets
-Simply run the compilation script:
-```bash
-# On Linux/macOS
-./build.sh
+### 1. Run the Setup Environment Script
+This checks for **Go** and **Node.js** dependencies, and automatically installs the **Wails CLI** tool if it is not present.
 
-# On Windows (PowerShell)
-.\build.sh
-```
+* **On Windows (PowerShell):**
+  ```powershell
+  .\setup.ps1
+  ```
+* **On Linux / macOS (Bash):**
+  ```bash
+  chmod +x setup.sh
+  ./setup.sh
+  ```
+
+### 2. Compile All Targets
+Once setup is complete, run the build script to compile the Windows GUI desktop app along with all CLI binaries (Windows, Linux, Android/Termux):
+
+* **On Windows (PowerShell/Git Bash):**
+  ```bash
+  ./build.sh
+  ```
+* **On Linux / macOS:**
+  ```bash
+  chmod +x build.sh
+  ./build.sh
+  ```
 
 ---
 
