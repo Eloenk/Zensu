@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Zensu
+Comment=Premium Anime Downloader
+Exec=/usr/bin/zensu
+Icon=zensu
+Terminal=false
+Type=Application
+Categories=Utility;AudioVideo;Video;
+Keywords=anime;downloader;animepahe;

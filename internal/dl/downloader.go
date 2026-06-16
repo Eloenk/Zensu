@@ -407,9 +407,8 @@ func (m *Manager) downloadHLS(job Job) error {
 	}
 
 	cmd := exec.Command(ffmpegPath, args...)
-	if runtime.GOOS == "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000} // CREATE_NO_WINDOW
-	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	setHideWindow(cmd.SysProcAttr)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

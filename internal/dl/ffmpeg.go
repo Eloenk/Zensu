@@ -22,9 +22,8 @@ const (
 
 func isFfmpegCallable(path string) bool {
 	cmd := exec.Command(path, "-version")
-	if runtime.GOOS == "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000} // CREATE_NO_WINDOW
-	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	setHideWindow(cmd.SysProcAttr)
 	err := cmd.Run()
 	return err == nil
 }

@@ -9,9 +9,16 @@ SolidCompression=yes
 OutputDir=.
 OutputBaseFilename=zensu-setup
 
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+
 [Files]
 Source: "build\bin\zensu.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "bin\ffmpeg.exe"; DestDir: "{app}\bin"; Flags: ignoreversion skipifsourcedoesntexist
+
+[Icons]
+Name: "{group}\Zensu"; Filename: "{app}\zensu.exe"
+Name: "{autodesktop}\Zensu"; Filename: "{app}\zensu.exe"; Tasks: desktopicon
 
 [Registry]
 Root: HKCU; Subkey: "Environment"; ValueType: string; ValueName: "Path"; ValueData: "{olddata};{app}"; Flags: preservestringtype; Check: NeedsAddPath(ExpandConstant('{app}'))
