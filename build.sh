@@ -1,7 +1,7 @@
-#!/bin/bash
+
 set -e
 
-# Find wails command dynamically if not available globally
+
 WAILS_CMD="wails"
 if ! command -v wails &> /dev/null; then
     if [ -f "$HOME/go/bin/wails" ]; then
