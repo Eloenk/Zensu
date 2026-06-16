@@ -59,7 +59,7 @@ Once setup is complete, run the build script to compile the Windows GUI desktop 
 ---
 
 ## Configuration Settings
-Configuration is initialized automatically. To bypass Cloudflare blocks, you must update settings via the Settings Tab (GUI) or your system's `config.json` file:
+Configuration is initialized automatically. On first startup, the **Download Directory** (`downloadDir`) is automatically set to your user home `Videos/Anime` folder. To bypass Cloudflare blocks, you must update credentials via the Settings Tab (GUI) or your system's `config.json` file:
 * **Windows path:** `%APPDATA%\zensu\config.json`
 * **Linux/Android path:** `~/.config/zensu/config.json`
 
