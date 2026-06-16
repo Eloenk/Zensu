@@ -15,6 +15,7 @@ Thumbs.db
 # Self-healing local binaries directory (FFmpeg)
 /bin/
 !/bin/.gitkeep
+/build
 
 # Node/Vite frontend artifacts
 frontend/node_modules/

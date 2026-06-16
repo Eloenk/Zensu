@@ -86,6 +86,23 @@ body.theme-solid .sidebar {
     border-right: 1px solid var(--glass-border);
 }
 
+body.theme-solid .status-queued,
+body.theme-solid .status-downloading,
+body.theme-solid .status-done,
+body.theme-solid .status-failed {
+    color: #ffffff !important;
+    animation: none !important;
+}
+
+body.theme-solid .progress-bar {
+    background: #ffffff !important;
+}
+
+body.theme-solid .tiny-ep-num,
+body.theme-solid .tiny-ep-pct {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
 .app-container {
     display: flex;
     width: 100%;
@@ -480,7 +497,7 @@ input[type="text"]:focus, select:focus, textarea:focus {
     padding-right: 6px;
 }
 
-.download-item {
+.download-group {
     background: var(--card-bg);
     border: 1px solid var(--glass-border);
     border-radius: 12px;
@@ -496,21 +513,89 @@ input[type="text"]:focus, select:focus, textarea:focus {
     to { opacity: 1; transform: translateX(0); }
 }
 
-.dl-header {
+.group-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    cursor: pointer;
+    user-select: none;
 }
 
-.dl-title {
+.group-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.group-title {
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.group-status {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.group-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.group-eta {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.group-expand-icon {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
+}
+
+.group-episodes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--glass-border);
+}
+
+.tiny-ep-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.75rem;
+    padding: 2px 0;
+}
+
+.tiny-ep-num {
+    min-width: 32px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.tiny-track {
+    height: 4px !important;
+    flex-grow: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+}
+
+.tiny-ep-pct {
+    min-width: 35px;
+    text-align: right;
+    font-weight: 600;
+    color: var(--text-secondary);
 }
 
 .dl-status {
     font-size: 0.8rem;
     font-weight: 600;
-    text-transform: uppercase;
+    text-transform: none;
     letter-spacing: 0.5px;
 }
 

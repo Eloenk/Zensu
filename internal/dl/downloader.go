@@ -1,6 +1,7 @@
 package dl
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -292,6 +294,54 @@ func (m *Manager) downloadDirect(job Job) error {
 	return os.Rename(tmpPath, job.OutputPath)
 }
 
+func getM3U8Duration(playlistURL string) float64 {
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	req, err := http.NewRequest("GET", playlistURL, nil)
+	if err != nil {
+		return 1440
+	}
+	req.Header.Set("Referer", "https://kwik.cx/")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	resp, err := client.Do(req)
+	if err != nil {
+		return 1440
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 1440
+	}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 1440
+	}
+	playlistContent := string(bodyBytes)
+	
+	totalDuration := 0.0
+	lines := strings.Split(playlistContent, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "#EXTINF:") {
+			commaIdx := strings.Index(line, ",")
+			var durationStr string
+			if commaIdx != -1 {
+				durationStr = line[8:commaIdx]
+			} else {
+				durationStr = line[8:]
+			}
+			var dur float64
+			if _, err := fmt.Sscanf(durationStr, "%f", &dur); err == nil {
+				totalDuration += dur
+			}
+		}
+	}
+	if totalDuration == 0 {
+		return 1440
+	}
+	return totalDuration
+}
+
 func (m *Manager) downloadHLS(job Job) error {
 	if err := EnsureFFmpegOnce(); err != nil {
 		return err
@@ -340,6 +390,8 @@ func (m *Manager) downloadHLS(job Job) error {
 		ffmpegPath = "ffmpeg"
 	}
 
+	totalDuration := getM3U8Duration(job.URL)
+
 	args := []string{
 		"-allowed_extensions", "ALL",
 		"-extension_picky", "0",
@@ -348,9 +400,9 @@ func (m *Manager) downloadHLS(job Job) error {
 		"-reconnect_streamed", "1",
 		"-reconnect_delay_max", "5",
 		"-headers", "Referer: https://kwik.cx/\r\n",
+		"-progress", "pipe:1",
 		"-i", job.URL,
 		"-c", "copy",
-		"-v", "error",
 		"-y", job.OutputPath,
 	}
 
@@ -358,11 +410,67 @@ func (m *Manager) downloadHLS(job Job) error {
 	if runtime.GOOS == "windows" {
 		cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000} // CREATE_NO_WINDOW
 	}
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	var outTimeUs int64
+	var speedStr string
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(parts[1])
+			switch key {
+			case "out_time_us":
+				if us, err := strconv.ParseInt(val, 10, 64); err == nil {
+					outTimeUs = us
+					secs := float64(outTimeUs) / 1000000.0
+					pct := (secs / totalDuration) * 100.0
+					if pct > 100 {
+						pct = 100
+					}
+					
+					// Calculate dynamic ETA using speed value
+					var speedVal float64 = 1.0
+					if strings.HasSuffix(speedStr, "x") {
+						if sv, err := strconv.ParseFloat(strings.TrimSuffix(speedStr, "x"), 64); err == nil && sv > 0 {
+							speedVal = sv
+						}
+					}
+					remainingSecs := (totalDuration - secs) / speedVal
+					if remainingSecs < 0 {
+						remainingSecs = 0
+					}
+					etaStr := fmt.Sprintf("%.0fs", remainingSecs)
+					if remainingSecs > 60 {
+						etaStr = fmt.Sprintf("%dm %ds", int(remainingSecs)/60, int(remainingSecs)%60)
+					}
+
+					m.UpdateProgress(job.ID, job.AnimeTitle, job.EpNum, "downloading", pct, speedStr, etaStr, "")
+					printProgress(job.EpNum, int64(secs), int64(totalDuration), false)
+				}
+			case "speed":
+				speedStr = val
+			}
+		}
+	}
+
+	if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("ffmpeg failed: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
 	}
+	printProgress(job.EpNum, int64(totalDuration), int64(totalDuration), true)
 	return nil
 }
 

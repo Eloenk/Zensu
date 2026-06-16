@@ -292,7 +292,7 @@ func (a *App) StartDownload(animeTitle, slug string, epNums []float64) error {
 				}
 
 				sanitizedTitle := sanitizeName(animeTitle)
-				outPath := filepath.Join(cfg.DownloadDir, sanitizedTitle+" "+epStr+".mp4")
+				outPath := filepath.Join(cfg.DownloadDir, sanitizedTitle, sanitizedTitle+" "+epStr+".mp4")
 
 				jobID := fmt.Sprintf("%s - %s", animeTitle, epStr)
 				a.dlManager.Submit(dl.Job{

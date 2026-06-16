@@ -329,6 +329,34 @@ modalDownloadBtn.addEventListener('click', async () => {
 // Downloads Progress Updates
 // ----------------------------------------------------
 let activeUpdates = true;
+const expandedGroups = new Set();
+
+function parseETASeconds(etaStr) {
+    if (!etaStr || etaStr === '--') return 0;
+    let secs = 0;
+    const minSecMatch = etaStr.match(/(\d+)m\s*(\d+)s/);
+    if (minSecMatch) {
+        secs = parseInt(minSecMatch[1], 10) * 60 + parseInt(minSecMatch[2], 10);
+        return secs;
+    }
+    const secMatch = etaStr.match(/(\d+)s/);
+    if (secMatch) {
+        return parseInt(secMatch[1], 10);
+    }
+    const numMatch = etaStr.match(/^(\d+)$/);
+    if (numMatch) {
+        return parseInt(numMatch[1], 10);
+    }
+    return 0;
+}
+
+function formatSeconds(totalSecs) {
+    if (totalSecs <= 0) return '--';
+    if (totalSecs < 60) return `${totalSecs}s`;
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${mins}m ${secs}s`;
+}
 
 async function updateDownloadsProgress() {
     if (!activeUpdates) return;
@@ -337,15 +365,10 @@ async function updateDownloadsProgress() {
         
         // Count active/queued downloads for sidebar badge
         let activeCount = 0;
-        
-        // Sort progress by Anime Title, then Episode Number
-        progressList.sort((a, b) => {
-            const animeA = a.anime || '';
-            const animeB = b.anime || '';
-            if (animeA !== animeB) {
-                return animeA.localeCompare(animeB);
+        progressList.forEach(item => {
+            if (item.status === 'downloading' || item.status === 'queued') {
+                activeCount++;
             }
-            return a.epNum - b.epNum;
         });
         
         if (progressList.length === 0) {
@@ -359,81 +382,208 @@ async function updateDownloadsProgress() {
             downloadsList.innerHTML = '';
         }
 
-        // Build a set of current active item IDs
-        const currentIds = new Set(progressList.map(item => `dl-item-${item.id.replace(/[^a-zA-Z0-9-_]/g, '_')}`));
+        // Group by anime name
+        const groups = {};
+        progressList.forEach(item => {
+            const animeName = item.anime || 'Other';
+            if (!groups[animeName]) {
+                groups[animeName] = {
+                    name: animeName,
+                    items: [],
+                };
+            }
+            groups[animeName].items.push(item);
+        });
+
+        // Build a set of current active group IDs
+        const groupNames = Object.keys(groups).sort();
+        const currentGroupDomIds = new Set(groupNames.map(name => `dl-group-${name.replace(/[^a-zA-Z0-9-_]/g, '_')}`));
 
         // Remove DOM elements that are no longer in the list (e.g. after clearing)
         Array.from(downloadsList.children).forEach(child => {
-            if (child.id && child.id.startsWith('dl-item-') && !currentIds.has(child.id)) {
+            if (child.id && child.id.startsWith('dl-group-') && !currentGroupDomIds.has(child.id)) {
                 downloadsList.removeChild(child);
             }
         });
 
-        progressList.forEach((item, index) => {
-            if (item.status === 'downloading' || item.status === 'queued') {
-                activeCount++;
+        groupNames.forEach((groupName, groupIndex) => {
+            const group = groups[groupName];
+            const domId = `dl-group-${groupName.replace(/[^a-zA-Z0-9-_]/g, '_')}`;
+            let groupEl = document.getElementById(domId);
+
+            // Calculate progress average
+            let totalProg = 0;
+            group.items.forEach(item => totalProg += item.progress);
+            const avgProg = group.items.length > 0 ? totalProg / group.items.length : 0;
+
+            // Calculate aggregate status
+            const completedCount = group.items.filter(x => x.status === 'done').length;
+            const failedCount = group.items.filter(x => x.status === 'failed').length;
+            const downloadingCount = group.items.filter(x => x.status === 'downloading').length;
+            const queuedCount = group.items.filter(x => x.status === 'queued').length;
+
+            let statusText = '';
+            let statusClass = '';
+            if (downloadingCount > 0) {
+                statusText = `Downloading (${completedCount}/${group.items.length} done)`;
+                statusClass = 'status-downloading';
+            } else if (queuedCount > 0) {
+                statusText = `Queued (${completedCount}/${group.items.length} done)`;
+                statusClass = 'status-queued';
+            } else if (failedCount === group.items.length) {
+                statusText = 'Failed';
+                statusClass = 'status-failed';
+            } else if (completedCount === group.items.length) {
+                statusText = 'Done';
+                statusClass = 'status-done';
+            } else if (failedCount > 0) {
+                statusText = `Done (${failedCount} failed)`;
+                statusClass = 'status-done';
+            } else {
+                statusText = 'Done';
+                statusClass = 'status-done';
             }
 
-            const domId = `dl-item-${item.id.replace(/[^a-zA-Z0-9-_]/g, '_')}`;
-            let itemEl = document.getElementById(domId);
-            const displayTitle = item.anime ? `${item.anime} - E${item.epNum}` : `Episode ${item.epNum}`;
-            
-            let statusText = item.status;
-            let statusClass = `status-${item.status}`;
-            if (item.status === 'downloading') {
-                statusText = `Downloading ${Math.round(item.progress)}%`;
-            }
+            // Calculate aggregate ETA
+            let totalRemainingSecs = 0;
+            let activeCountInGroup = 0;
+            group.items.forEach(item => {
+                if (item.status === 'downloading') {
+                    totalRemainingSecs += parseETASeconds(item.eta);
+                    activeCountInGroup++;
+                } else if (item.status === 'queued') {
+                    totalRemainingSecs += 90; // estimate 90s per queued episode
+                }
+            });
 
-            let metaText = '';
-            if (item.status === 'downloading') {
-                metaText = `
-                    <span>Speed: ${item.speed || '--'}</span>
-                    <span>ETA: ${item.eta || '--'}</span>
-                `;
-            } else if (item.status === 'failed' && item.error) {
-                metaText = `<span style="color: #ef4444; font-size: 0.75rem;">Error: ${item.error}</span>`;
+            let combinedETASecs = 0;
+            if (activeCountInGroup > 0) {
+                combinedETASecs = Math.ceil(totalRemainingSecs / activeCountInGroup);
+            } else if (queuedCount > 0) {
+                combinedETASecs = Math.ceil(totalRemainingSecs / 3);
             }
+            const etaText = (downloadingCount > 0 || queuedCount > 0) ? `ETA: ${formatSeconds(combinedETASecs)}` : '';
 
-            if (!itemEl) {
-                itemEl = document.createElement('div');
-                itemEl.id = domId;
-                itemEl.className = 'download-item';
-                itemEl.innerHTML = `
-                    <div class="dl-header">
-                        <span class="dl-title">${displayTitle}</span>
-                        <span class="dl-status ${statusClass}">${statusText}</span>
+            // Check if group is expanded
+            const isExpanded = expandedGroups.has(groupName);
+
+            if (!groupEl) {
+                groupEl = document.createElement('div');
+                groupEl.id = domId;
+                groupEl.className = 'download-group';
+                groupEl.innerHTML = `
+                    <div class="group-header">
+                        <div class="group-info">
+                            <span class="group-title">${groupName}</span>
+                            <span class="group-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="group-meta">
+                            <span class="group-eta">${etaText}</span>
+                            <span class="group-expand-icon">${isExpanded ? '▲' : '▼'}</span>
+                        </div>
                     </div>
                     <div class="progress-track">
-                        <div class="progress-bar" style="width: ${item.progress}%"></div>
+                        <div class="progress-bar" style="width: ${avgProg}%"></div>
                     </div>
-                    <div class="dl-meta">
-                        ${metaText}
-                    </div>
+                    <div class="group-episodes" style="display: ${isExpanded ? 'flex' : 'none'};"></div>
                 `;
-                downloadsList.appendChild(itemEl);
+                downloadsList.appendChild(groupEl);
+
+                // Add toggle listener
+                const header = groupEl.querySelector('.group-header');
+                header.addEventListener('click', () => {
+                    const episodesDiv = groupEl.querySelector('.group-episodes');
+                    const icon = groupEl.querySelector('.group-expand-icon');
+                    if (expandedGroups.has(groupName)) {
+                        expandedGroups.delete(groupName);
+                        episodesDiv.style.display = 'none';
+                        icon.textContent = '▼';
+                    } else {
+                        expandedGroups.add(groupName);
+                        episodesDiv.style.display = 'flex';
+                        icon.textContent = '▲';
+                    }
+                });
             } else {
-                // Update properties in-place if they exist to prevent flickering
-                const statusEl = itemEl.querySelector('.dl-status');
+                // Update in place
+                const statusEl = groupEl.querySelector('.group-status');
                 if (statusEl) {
-                    statusEl.className = `dl-status ${statusClass}`;
+                    statusEl.className = `group-status ${statusClass}`;
                     statusEl.textContent = statusText;
                 }
 
-                const progressBar = itemEl.querySelector('.progress-bar');
+                const etaEl = groupEl.querySelector('.group-eta');
+                if (etaEl) {
+                    etaEl.textContent = etaText;
+                }
+
+                const progressBar = groupEl.querySelector('.progress-bar');
                 if (progressBar) {
-                    progressBar.style.width = `${item.progress}%`;
+                    progressBar.style.width = `${avgProg}%`;
                 }
 
-                const metaEl = itemEl.querySelector('.dl-meta');
-                if (metaEl && metaEl.innerHTML !== metaText) {
-                    metaEl.innerHTML = metaText;
+                const icon = groupEl.querySelector('.group-expand-icon');
+                if (icon) {
+                    icon.textContent = isExpanded ? '▲' : '▼';
+                }
+
+                const episodesDiv = groupEl.querySelector('.group-episodes');
+                if (episodesDiv) {
+                    episodesDiv.style.display = isExpanded ? 'flex' : 'none';
                 }
             }
 
-            // Maintain stable DOM ordering corresponding to the sorted list
-            if (downloadsList.children[index] !== itemEl) {
-                downloadsList.insertBefore(itemEl, downloadsList.children[index]);
+            // Maintain correct ordering in the downloadsList DOM
+            if (downloadsList.children[groupIndex] !== groupEl) {
+                downloadsList.insertBefore(groupEl, downloadsList.children[groupIndex]);
             }
+
+            // Update sub-items
+            const episodesDiv = groupEl.querySelector('.group-episodes');
+            const epDomIds = new Set(group.items.map(item => `ep-row-${item.id.replace(/[^a-zA-Z0-9-_]/g, '_')}`));
+
+            // Remove old episode rows
+            Array.from(episodesDiv.children).forEach(child => {
+                if (child.id && child.id.startsWith('ep-row-') && !epDomIds.has(child.id)) {
+                    episodesDiv.removeChild(child);
+                }
+            });
+
+            // Add or update episode rows in sorted order of episodes
+            group.items.sort((a, b) => a.epNum - b.epNum);
+            group.items.forEach((item, epIndex) => {
+                const epDomId = `ep-row-${item.id.replace(/[^a-zA-Z0-9-_]/g, '_')}`;
+                let epRow = document.getElementById(epDomId);
+                const epLabel = `E${item.epNum}`;
+
+                if (!epRow) {
+                    epRow = document.createElement('div');
+                    epRow.id = epDomId;
+                    epRow.className = 'tiny-ep-row';
+                    epRow.innerHTML = `
+                        <span class="tiny-ep-num">${epLabel}</span>
+                        <div class="progress-track tiny-track">
+                            <div class="progress-bar" style="width: ${item.progress}%"></div>
+                        </div>
+                        <span class="tiny-ep-pct">${Math.round(item.progress)}%</span>
+                    `;
+                    episodesDiv.appendChild(epRow);
+                } else {
+                    const progressBar = epRow.querySelector('.progress-bar');
+                    if (progressBar) {
+                        progressBar.style.width = `${item.progress}%`;
+                    }
+                    const pctEl = epRow.querySelector('.tiny-ep-pct');
+                    if (pctEl) {
+                        pctEl.textContent = `${Math.round(item.progress)}%`;
+                    }
+                }
+
+                // Maintain correct ordering inside episodesDiv
+                if (episodesDiv.children[epIndex] !== epRow) {
+                    episodesDiv.insertBefore(epRow, episodesDiv.children[epIndex]);
+                }
+            });
         });
 
         if (activeCount > 0) {
