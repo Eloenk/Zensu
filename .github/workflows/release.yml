@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
+  build-and-release:
     runs-on: windows-latest
     steps:
       - name: Checkout Code
@@ -30,112 +30,41 @@ jobs:
         run: |
           go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-      - name: Build Desktop GUI
+      - name: Build Windows GUI App
         run: |
           wails build -clean
-
-      - name: Build CLI version
-        run: |
-          mkdir -p build/bin/cli
-          go build -ldflags="-s -w" -o build/bin/cli/zensu-cli.exe ./cmd/
 
       - name: Run Inno Setup Compiler
         run: |
           iscc installer.iss
 
-      - name: Upload Windows Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: zensu-windows
-          path: |
-            zensu-setup.exe
-            build/bin/cli/zensu-cli.exe
-
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Install Linux Build Dependencies
+      - name: Copy Installer to Final Name
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config
+          Copy-Item zensu-setup.exe zensu-setup-x64.exe
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache: true
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Wails
+      - name: Build Windows CLI
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Build Desktop GUI
-        run: |
-          wails build -clean
+          go build -ldflags="-s -w" -o zensu-cli-x64.exe ./cmd/
 
       - name: Build Linux CLI
         run: |
-          mkdir -p build/bin/cli
-          go build -ldflags="-s -w" -o build/bin/cli/zensu-cli ./cmd/
+          $env:GOOS="linux"
+          $env:GOARCH="amd64"
+          go build -ldflags="-s -w" -o zensu-cli-linux-x64 ./cmd/
 
       - name: Build Android ARM64 CLI
         run: |
-          GOOS=android GOARCH=arm64 go build -ldflags="-s -w" -o build/bin/cli/zensu-termux ./cmd/
-
-      - name: Package Debian Installer
-        run: |
-          chmod +x build/linux/package_deb.sh
-          ./build/linux/package_deb.sh
-
-      - name: Upload Linux Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: zensu-linux
-          path: |
-            build/bin/zensu.deb
-            build/bin/cli/zensu-cli
-            build/bin/cli/zensu-termux
-
-  create-release:
-    needs: [build-windows, build-linux]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Download Windows Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: zensu-windows
-          path: artifacts/windows
-
-      - name: Download Linux Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: zensu-linux
-          path: artifacts/linux
-
-      - name: Prepare Release Directory
-        run: |
-          mkdir release-assets
-          mv artifacts/windows/zensu-setup.exe release-assets/zensu-setup-x64.exe
-          mv artifacts/windows/zensu-cli.exe release-assets/zensu-cli-x64.exe
-          mv artifacts/linux/zensu.deb release-assets/zensu-amd64.deb
-          mv artifacts/linux/zensu-cli release-assets/zensu-cli-linux-x64
-          mv artifacts/linux/zensu-termux release-assets/zensu-cli-termux-arm64
+          $env:GOOS="android"
+          $env:GOARCH="arm64"
+          go build -ldflags="-s -w" -o zensu-cli-termux-arm64 ./cmd/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-assets/*
+            zensu-setup-x64.exe
+            zensu-cli-x64.exe
+            zensu-cli-linux-x64
+            zensu-cli-termux-arm64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
