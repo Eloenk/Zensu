@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Zensu</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <span class="logo-text">Zensu</span>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-item active" id="tab-search">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <span>Search</span>
+                </button>
+                <button class="nav-item" id="tab-downloads">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>Downloads</span>
+                    <span class="badge" id="download-badge" style="display: none;">0</span>
+                </button>
+                <button class="nav-item" id="tab-settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    <span>Settings</span>
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                v1.0.0
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Search Panel -->
+            <section class="panel active" id="panel-search">
+                <div class="panel-header">
+                    <h1>Search Anime</h1>
+                    <p>Find your favorite anime and begin downloading episodes</p>
+                </div>
+                
+                <div class="search-bar">
+                    <input type="text" id="search-input" placeholder="Type anime title..." autocomplete="off">
+                    <button id="search-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        Search
+                    </button>
+                </div>
+
+                <div class="search-status" id="search-status"></div>
+
+                <div class="results-grid" id="search-results">
+                    <!-- Cards will be populated here -->
+                </div>
+            </section>
+
+            <!-- Downloads Panel -->
+            <section class="panel" id="panel-downloads">
+                <div class="panel-header">
+                    <div class="header-action-row">
+                        <div>
+                            <h1>Downloads</h1>
+                            <p>Track active episodes downloading to your system</p>
+                        </div>
+                        <button class="btn-secondary" id="clear-downloads-btn">Clear Completed</button>
+                    </div>
+                </div>
+
+                <div class="downloads-container" id="downloads-list">
+                    <!-- Progress items will go here -->
+                </div>
+            </section>
+
+            <!-- Settings Panel -->
+            <section class="panel" id="panel-settings">
+                <div class="panel-header">
+                    <h1>Settings</h1>
+                </div>
+
+                <form class="settings-form" id="settings-form">
+                    <div class="settings-group">
+                        <label for="setting-domain">AnimePahe Domain</label>
+                        <input type="text" id="setting-domain" placeholder="https://animepahe.pw">
+                        <small>Custom mirror/domain since AnimePahe changes them frequently</small>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="setting-ua">User-Agent</label>
+                        <textarea id="setting-ua" rows="2" placeholder="Mozilla/5.0..."></textarea>
+                        <small>Must match the browser User-Agent used to get clearance cookies</small>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="setting-cf">Cloudflare Clearance Cookie (cf_clearance)</label>
+                        <input type="text" id="setting-cf" placeholder="e.g. 1a2b3c4d5e...">
+                        <small>Clearance cookie value to bypass Cloudflare protection layers</small>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="setting-dir">Download Directory</label>
+                        <div class="directory-input-row">
+                            <input type="text" id="setting-dir" placeholder="Select a folder..." readonly>
+                            <button type="button" class="btn-primary" id="btn-browse-dir">Browse</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-row">
+                        <div class="settings-group half">
+                            <label for="setting-quality">Preferred Quality</label>
+                            <select id="setting-quality">
+                                <option value="1080">1080p</option>
+                                <option value="720">720p</option>
+                                <option value="480">480p</option>
+                                <option value="360">360p</option>
+                            </select>
+                        </div>
+                        <div class="settings-group half">
+                            <label for="setting-audio">Preferred Language</label>
+                            <select id="setting-audio">
+                                <option value="jpn">Subbed (Japanese)</option>
+                                <option value="eng">Dubbed (English)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="setting-parallel">Max Parallel Downloads</label>
+                        <select id="setting-parallel">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="setting-theme">Application Theme</label>
+                        <select id="setting-theme">
+                            <option value="glow">Cyberpunk Glow</option>
+                            <option value="solid">Midnight Solid</option>
+                        </select>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary" id="save-settings-btn">Save Changes</button>
+                        <span id="save-status" class="save-status-msg"></span>
+                    </div>
+                </form>
+            </section>
+        </main>
+    </div>
+
+    <!-- Episode Selection Modal -->
+    <div class="modal-overlay" id="episode-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-header-content">
+                    <div class="modal-poster-wrapper" id="modal-poster-wrapper" style="display: none;"></div>
+                    <div class="modal-header-text">
+                        <h2 id="modal-anime-title">Anime Title</h2>
+                        <p id="modal-status-text">Select episodes to queue for download</p>
+                    </div>
+                </div>
+                <button class="modal-close" id="modal-close-btn">&times;</button>
+            </div>
+            
+            <div class="modal-actions-row">
+                <button class="btn-secondary btn-sm" id="modal-select-all">Select All</button>
+                <button class="btn-secondary btn-sm" id="modal-select-none">Clear Selection</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="episode-selection-grid" id="modal-episodes-list">
+                    <!-- Episode checkboxes will populate here -->
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-secondary" id="modal-cancel-btn">Cancel</button>
+                <button class="btn-primary" id="modal-download-btn">Add to Queue</button>
+            </div>
+        </div>
+    </div>
+    <script src="./src/main.js" type="module"></script>
+</body>
+</html>

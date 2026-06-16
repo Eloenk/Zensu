@@ -1,0 +1,21 @@
+# System and Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# Go binaries and build directories
+*.exe
+*.dll
+*.so
+*.dylib
+/build/bin/
+
+# Self-healing local binaries directory (FFmpeg)
+/bin/
+!/bin/.gitkeep
+
+# Node/Vite frontend artifacts
+frontend/node_modules/
+frontend/dist/
