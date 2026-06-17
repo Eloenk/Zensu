@@ -4,6 +4,8 @@ import {config} from '../models';
 import {main} from '../models';
 import {dl} from '../models';
 
+export function CancelAnimeDownloads(arg1:string):Promise<void>;
+
 export function ClearProgress():Promise<void>;
 
 export function GetConfig():Promise<config.Config>;
@@ -13,6 +15,10 @@ export function GetEpisodes(arg1:string,arg2:string):Promise<Array<main.EpisodeI
 export function GetPosterBase64(arg1:string):Promise<string>;
 
 export function GetProgress():Promise<Array<dl.JobProgress>>;
+
+export function IsOnline():Promise<boolean>;
+
+export function RetryFailed(arg1:string):Promise<void>;
 
 export function SaveConfig(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:number):Promise<void>;
 

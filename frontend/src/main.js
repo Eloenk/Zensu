@@ -8,7 +8,10 @@ import {
     StartDownload, 
     GetProgress, 
     ClearProgress,
-    GetPosterBase64
+    GetPosterBase64,
+    IsOnline,
+    RetryFailed,
+    CancelAnimeDownloads
 } from '../wailsjs/go/main/App';
 
 function applyTheme(theme) {
@@ -50,7 +53,6 @@ const searchResults = document.getElementById('search-results');
 
 const downloadsList = document.getElementById('downloads-list');
 const downloadBadge = document.getElementById('download-badge');
-const clearDownloadsBtn = document.getElementById('clear-downloads-btn');
 
 const settingsForm = document.getElementById('settings-form');
 const settingsDomain = document.getElementById('setting-domain');
@@ -478,6 +480,12 @@ async function updateDownloadsProgress() {
                             <span class="group-status ${statusClass}">${statusText}</span>
                         </div>
                         <div class="group-meta">
+                            <button class="btn-cancel" title="Cancel/Remove Downloads">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;display:block;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                            <button class="btn-retry" title="Retry Failed/Stuck Downloads">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;display:block;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                            </button>
                             <span class="group-eta">${etaText}</span>
                             <span class="group-expand-icon">${isExpanded ? '▲' : '▼'}</span>
                         </div>
@@ -504,6 +512,34 @@ async function updateDownloadsProgress() {
                         icon.textContent = '▲';
                     }
                 });
+
+                // Add retry listener
+                const retryBtn = groupEl.querySelector('.btn-retry');
+                if (retryBtn) {
+                    retryBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation(); // prevent toggling the group expansion
+                        try {
+                            await RetryFailed(groupName);
+                            updateDownloadsProgress();
+                        } catch (err) {
+                            console.error('Failed to retry:', err);
+                        }
+                    });
+                }
+
+                // Add cancel listener
+                const cancelBtn = groupEl.querySelector('.btn-cancel');
+                if (cancelBtn) {
+                    cancelBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation(); // prevent toggling the group expansion
+                        try {
+                            await CancelAnimeDownloads(groupName);
+                            updateDownloadsProgress();
+                        } catch (err) {
+                            console.error('Failed to cancel:', err);
+                        }
+                    });
+                }
             } else {
                 // Update in place
                 const statusEl = groupEl.querySelector('.group-status');
@@ -559,7 +595,7 @@ async function updateDownloadsProgress() {
                 if (!epRow) {
                     epRow = document.createElement('div');
                     epRow.id = epDomId;
-                    epRow.className = 'tiny-ep-row';
+                    epRow.className = `tiny-ep-row${item.status === 'failed' ? ' failed-row' : ''}`;
                     epRow.innerHTML = `
                         <span class="tiny-ep-num">${epLabel}</span>
                         <div class="progress-track tiny-track">
@@ -569,6 +605,11 @@ async function updateDownloadsProgress() {
                     `;
                     episodesDiv.appendChild(epRow);
                 } else {
+                    if (item.status === 'failed') {
+                        epRow.classList.add('failed-row');
+                    } else {
+                        epRow.classList.remove('failed-row');
+                    }
                     const progressBar = epRow.querySelector('.progress-bar');
                     if (progressBar) {
                         progressBar.style.width = `${item.progress}%`;
@@ -598,16 +639,58 @@ async function updateDownloadsProgress() {
     }
 }
 
-clearDownloadsBtn.addEventListener('click', async () => {
-    try {
-        await ClearProgress();
-        updateDownloadsProgress();
-    } catch (err) {
-        console.error('Failed to clear progress:', err);
-    }
-});
+
 
 // Initialization
 loadSettings();
 updateDownloadsProgress();
 setInterval(updateDownloadsProgress, 1000);
+
+// Connectivity checks
+let isOnline = true;
+async function checkConnectivity() {
+    try {
+        const online = navigator.onLine && await IsOnline();
+        updateOnlineStatus(online);
+    } catch (err) {
+        updateOnlineStatus(false);
+    }
+}
+
+function updateOnlineStatus(online) {
+    if (isOnline === online) return;
+    isOnline = online;
+    
+    const offlineBanner = document.getElementById('offline-banner');
+    if (!online) {
+        if (!offlineBanner) {
+            const banner = document.createElement('div');
+            banner.id = 'offline-banner';
+            banner.className = 'offline-banner';
+            banner.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                <span>Offline: No internet connection or mirror is unreachable. Search, settings edits, and directory browsing are disabled.</span>
+            `;
+            document.body.appendChild(banner);
+        }
+        searchInput.disabled = true;
+        searchBtn.disabled = true;
+        modalDownloadBtn.disabled = true;
+        btnBrowseDir.disabled = true;
+        saveSettingsBtn.disabled = true;
+        document.body.classList.add('is-offline');
+    } else {
+        if (offlineBanner) {
+            offlineBanner.remove();
+        }
+        searchInput.disabled = false;
+        searchBtn.disabled = false;
+        modalDownloadBtn.disabled = false;
+        btnBrowseDir.disabled = false;
+        saveSettingsBtn.disabled = false;
+        document.body.classList.remove('is-offline');
+    }
+}
+
+checkConnectivity();
+setInterval(checkConnectivity, 3000);

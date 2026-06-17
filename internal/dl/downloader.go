@@ -3,6 +3,7 @@ package dl
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -17,6 +18,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"zensu/internal/logger"
 )
 
 type Job struct {
@@ -45,12 +48,22 @@ type JobProgress struct {
 	Error    string  `json:"error,omitempty"`
 }
 
+type activeJob struct {
+	cancel context.CancelFunc
+	runID  int64
+	cmd    *exec.Cmd
+}
+
 type Manager struct {
 	maxParallel int
 	ua          string
 	mu          sync.Mutex
 	progress    map[string]*JobProgress
 	jobsChan    chan Job
+
+	activeJobs  map[string]activeJob
+	runCounter  int64
+	cancelMu    sync.Mutex
 }
 
 func NewManager(maxParallel int, ua string) *Manager {
@@ -59,6 +72,7 @@ func NewManager(maxParallel int, ua string) *Manager {
 		ua:          ua,
 		progress:    make(map[string]*JobProgress),
 		jobsChan:    make(chan Job, 1000),
+		activeJobs:  make(map[string]activeJob),
 	}
 	m.StartWorkers()
 	return m
@@ -66,6 +80,24 @@ func NewManager(maxParallel int, ua string) *Manager {
 
 func (m *Manager) StartWorkers() {
 	for i := 0; i < m.maxParallel; i++ {
+		go func() {
+			for job := range m.jobsChan {
+				m.downloadWorker(job)
+			}
+		}()
+	}
+}
+
+func (m *Manager) SetMaxParallel(n int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if n <= m.maxParallel {
+		m.maxParallel = n
+		return
+	}
+	diff := n - m.maxParallel
+	m.maxParallel = n
+	for i := 0; i < diff; i++ {
 		go func() {
 			for job := range m.jobsChan {
 				m.downloadWorker(job)
@@ -86,6 +118,17 @@ func (m *Manager) Submit(job Job) {
 		}
 		job.ID = fmt.Sprintf("%s - %s", anime, epStr)
 	}
+
+	// Cancel any existing active worker for this job ID to prevent progress glitches
+	m.cancelMu.Lock()
+	if act, ok := m.activeJobs[job.ID]; ok {
+		act.cancel()
+		delete(m.activeJobs, job.ID)
+		logger.Infof("QUEUE_CANCEL_PREV", "Cancelled previous running job: %s", job.ID)
+		time.Sleep(50 * time.Millisecond) // Give the worker a moment to drop out
+	}
+	m.cancelMu.Unlock()
+
 	m.mu.Lock()
 	p, ok := m.progress[job.ID]
 	if !ok {
@@ -99,21 +142,61 @@ func (m *Manager) Submit(job Job) {
 	p.Error = ""
 	m.mu.Unlock()
 
+	logger.Infof("QUEUE_SUBMIT", "Submitted job: %s", job.ID)
 	m.jobsChan <- job
 }
 
 func (m *Manager) downloadWorker(job Job) {
+	m.mu.Lock()
+	_, exists := m.progress[job.ID]
+	m.mu.Unlock()
+	if !exists {
+		logger.Infof("DL_CANCELLED_PRESTART", "Worker skipping cancelled job before start: %s", job.ID)
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	runID := atomic.AddInt64(&m.runCounter, 1)
+
+	m.cancelMu.Lock()
+	m.activeJobs[job.ID] = activeJob{cancel: cancel, runID: runID}
+	m.cancelMu.Unlock()
+
+	defer func() {
+		m.cancelMu.Lock()
+		if act, ok := m.activeJobs[job.ID]; ok && act.runID == runID {
+			delete(m.activeJobs, job.ID)
+		}
+		m.cancelMu.Unlock()
+		cancel()
+	}()
+
+	logger.Infof("DL_START", "Starting download: %s (HLS: %t)", job.ID, job.IsHLS)
 	m.UpdateProgress(job.ID, job.AnimeTitle, job.EpNum, "downloading", 0, "", "", "")
+
 	var err error
 	if job.IsHLS {
-		err = m.downloadHLS(job)
+		err = m.downloadHLS(ctx, job)
 	} else {
-		err = m.downloadDirect(job)
+		err = m.downloadDirect(ctx, job)
 	}
+
 	if err != nil {
+		if ctx.Err() != nil {
+			logger.Infof("DL_CANCELLED", "Worker context cancelled: %s", job.ID)
+			return // Ignore setting status to failed to let new worker update status
+		}
+		logger.Errorf("DL_FAIL", "Failed downloading %s: %v", job.ID, err)
 		m.UpdateProgress(job.ID, job.AnimeTitle, job.EpNum, "failed", 0, "", "", err.Error())
 	} else {
+		logger.Infof("DL_DONE", "Finished downloading: %s", job.ID)
 		m.UpdateProgress(job.ID, job.AnimeTitle, job.EpNum, "done", 100, "", "", "")
+		go func(id string) {
+			time.Sleep(3 * time.Second)
+			m.mu.Lock()
+			delete(m.progress, id)
+			m.mu.Unlock()
+		}(job.ID)
 	}
 }
 
@@ -146,6 +229,40 @@ func (m *Manager) ClearProgress() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.progress = make(map[string]*JobProgress)
+}
+
+func (m *Manager) CancelJob(id string) {
+	m.cancelMu.Lock()
+	if act, ok := m.activeJobs[id]; ok {
+		act.cancel()
+		if act.cmd != nil && act.cmd.Process != nil {
+			logger.Infof("DL_KILL_PROCESS", "Directly killing process for %s (PID: %d)", id, act.cmd.Process.Pid)
+			act.cmd.Process.Kill()
+		}
+		delete(m.activeJobs, id)
+	}
+	m.cancelMu.Unlock()
+
+	m.mu.Lock()
+	delete(m.progress, id)
+	m.mu.Unlock()
+}
+
+func (m *Manager) CancelAll() {
+	m.cancelMu.Lock()
+	for id, act := range m.activeJobs {
+		act.cancel()
+		if act.cmd != nil && act.cmd.Process != nil {
+			logger.Infof("DL_KILL_PROCESS_ALL", "Directly killing process for %s (PID: %d) during shutdown", id, act.cmd.Process.Pid)
+			act.cmd.Process.Kill()
+		}
+	}
+	m.activeJobs = make(map[string]activeJob)
+	m.cancelMu.Unlock()
+
+	m.mu.Lock()
+	m.progress = make(map[string]*JobProgress)
+	m.mu.Unlock()
 }
 
 func (m *Manager) RunAll(jobs <-chan Job, total int) <-chan Result {
@@ -186,14 +303,14 @@ func (m *Manager) RunAll(jobs <-chan Job, total int) <-chan Result {
 	return results
 }
 
-func (m *Manager) downloadDirect(job Job) error {
+func (m *Manager) downloadDirect(ctx context.Context, job Job) error {
 	if err := os.MkdirAll(filepath.Dir(job.OutputPath), 0755); err != nil {
 		return err
 	}
 
 	tmpPath := job.OutputPath + ".tmp"
 
-	req, err := http.NewRequest(http.MethodHead, job.URL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, job.URL, nil)
 	if err != nil {
 		return err
 	}
@@ -216,11 +333,17 @@ func (m *Manager) downloadDirect(job Job) error {
 		downloaded = stat.Size()
 	}
 
+	logger.Infof("DL_DIRECT_START", "Starting direct HTTP download to %s, size: %d bytes (resume offset: %d)", tmpPath, totalBytes, downloaded)
 	startTime := time.Now()
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		dlReq, err := http.NewRequest(http.MethodGet, job.URL, nil)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, job.URL, nil)
 		if err != nil {
+			logger.Errorf("DL_DIRECT_REQ_ERR", "Failed creating request: %v", err)
 			return err
 		}
 		dlReq.Header.Set("User-Agent", m.ua)
@@ -232,6 +355,10 @@ func (m *Manager) downloadDirect(job Job) error {
 
 		resp, err := dlClient.Do(dlReq)
 		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			logger.Warnf("DL_DIRECT_CONN_ERR", "Direct download attempt %d failed: %v", attempt, err)
 			if attempt == maxRetries {
 				return fmt.Errorf("download request failed: %w", err)
 			}
@@ -239,8 +366,11 @@ func (m *Manager) downloadDirect(job Job) error {
 			continue
 		}
 
+		logger.Infof("DL_DIRECT_RESP", "Attempt %d: HTTP %d", attempt, resp.StatusCode)
+
 		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 			resp.Body.Close()
+			logger.Warnf("DL_DIRECT_BAD_STATUS", "Attempt %d: HTTP %d (expected 200 or 206)", attempt, resp.StatusCode)
 			if attempt == maxRetries {
 				return fmt.Errorf("bad status %d", resp.StatusCode)
 			}
@@ -258,11 +388,13 @@ func (m *Manager) downloadDirect(job Job) error {
 
 		if err != nil {
 			resp.Body.Close()
+			logger.Errorf("DL_DIRECT_FILE_ERR", "Failed to open output file %s: %v", tmpPath, err)
 			return fmt.Errorf("failed to open/create file: %w", err)
 		}
 
 		buf := make([]byte, 32*1024)
 		pr := &progressReader{
+			ctx:       ctx,
 			r:         resp.Body,
 			buf:       buf,
 			id:        job.ID,
@@ -283,6 +415,12 @@ func (m *Manager) downloadDirect(job Job) error {
 			break
 		}
 
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		logger.Warnf("DL_DIRECT_WRITE_ERR", "Attempt %d write error: %v", attempt, copyErr)
+
 		if attempt == maxRetries {
 			return fmt.Errorf("write failed: %w", copyErr)
 		}
@@ -290,6 +428,7 @@ func (m *Manager) downloadDirect(job Job) error {
 		time.Sleep(2 * time.Second)
 	}
 
+	logger.Infof("DL_DIRECT_OK", "Direct download finished successfully: %s", job.OutputPath)
 	printProgress(job.EpNum, downloaded, totalBytes, true)
 	return os.Rename(tmpPath, job.OutputPath)
 }
@@ -342,12 +481,14 @@ func getM3U8Duration(playlistURL string) float64 {
 	return totalDuration
 }
 
-func (m *Manager) downloadHLS(job Job) error {
+func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 	if err := EnsureFFmpegOnce(); err != nil {
+		logger.Errorf("DL_HLS_FFMPEG_ERR", "FFmpeg checks failed: %v", err)
 		return err
 	}
 
 	if err := os.MkdirAll(filepath.Dir(job.OutputPath), 0755); err != nil {
+		logger.Errorf("DL_HLS_DIR_ERR", "Failed creating directory: %v", err)
 		return err
 	}
 
@@ -406,18 +547,29 @@ func (m *Manager) downloadHLS(job Job) error {
 		"-y", job.OutputPath,
 	}
 
-	cmd := exec.Command(ffmpegPath, args...)
+	logger.Infof("DL_HLS_START", "Starting ffmpeg download to %s, total duration: %.2fs", job.OutputPath, totalDuration)
+
+	cmd := exec.CommandContext(ctx, ffmpegPath, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
 	setHideWindow(cmd.SysProcAttr)
 
+	m.cancelMu.Lock()
+	if act, ok := m.activeJobs[job.ID]; ok {
+		act.cmd = cmd
+		m.activeJobs[job.ID] = act
+	}
+	m.cancelMu.Unlock()
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		logger.Errorf("DL_HLS_PIPE_ERR", "Failed to get stdout pipe: %v", err)
 		return err
 	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	if err := cmd.Start(); err != nil {
+		logger.Errorf("DL_HLS_START_ERR", "Failed starting ffmpeg: %v", err)
 		return err
 	}
 
@@ -467,13 +619,17 @@ func (m *Manager) downloadHLS(job Job) error {
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("ffmpeg failed: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
+		errStr := stderr.String()
+		logger.Errorf("DL_HLS_FAIL", "ffmpeg failed with: %v (stderr: %s)", err, strings.TrimSpace(errStr))
+		return fmt.Errorf("ffmpeg failed: %w (stderr: %s)", err, strings.TrimSpace(errStr))
 	}
+	logger.Infof("DL_HLS_OK", "HLS download finished successfully: %s", job.OutputPath)
 	printProgress(job.EpNum, int64(totalDuration), int64(totalDuration), true)
 	return nil
 }
 
 type progressReader struct {
+	ctx       context.Context
 	r         io.Reader
 	buf       []byte
 	id        string
@@ -487,6 +643,9 @@ type progressReader struct {
 }
 
 func (pr *progressReader) Read(p []byte) (int, error) {
+	if pr.ctx.Err() != nil {
+		return 0, pr.ctx.Err()
+	}
 	n, err := pr.r.Read(p)
 	if n > 0 {
 		atomic.AddInt64(pr.written, int64(n))

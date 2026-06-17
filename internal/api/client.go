@@ -9,6 +9,8 @@ import (
 	http "github.com/bogdanfinn/fhttp"
 	tlsclient "github.com/bogdanfinn/tls-client"
 	"github.com/bogdanfinn/tls-client/profiles"
+
+	"zensu/internal/logger"
 )
 
 type Client struct {
@@ -29,6 +31,7 @@ func NewClient(ua, cookies, domain string) (*Client, error) {
 
 	inner, err := tlsclient.NewHttpClient(tlsclient.NewNoopLogger(), options...)
 	if err != nil {
+		logger.Errorf("API_CLIENT_INIT_ERR", "Failed to create tls client: %v", err)
 		return nil, fmt.Errorf("failed to create tls client: %w", err)
 	}
 
@@ -36,6 +39,7 @@ func NewClient(ua, cookies, domain string) (*Client, error) {
 	c.seedCookies(domain)
 	c.seedCookies("https://kwik.cx")
 
+	logger.Infof("API_CLIENT_INIT", "Client created successfully for domain %s", domain)
 	return c, nil
 }
 
@@ -60,8 +64,10 @@ func (c *Client) seedCookies(rawURL string) {
 }
 
 func (c *Client) Get(rawURL string, extraHeaders map[string]string) (string, error) {
+	logger.Infof("API_GET", "GET request: %s", rawURL)
 	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
+		logger.Errorf("API_GET_ERR", "Failed to create request for %s: %v", rawURL, err)
 		return "", err
 	}
 
@@ -81,19 +87,23 @@ func (c *Client) Get(rawURL string, extraHeaders map[string]string) (string, err
 
 	resp, err := c.inner.Do(req)
 	if err != nil {
+		logger.Errorf("API_GET_ERR", "GET failed for %s: %v", rawURL, err)
 		return "", fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 403 {
+		logger.Errorf("API_CF_BLOCKED", "403 Forbidden on %s — CF blocked, cookies need update", rawURL)
 		return "", fmt.Errorf("403 Forbidden — CF blocked, refresh cookies")
 	}
 	if resp.StatusCode != 200 {
+		logger.Errorf("API_GET_BAD_STATUS", "HTTP %d returned for %s", resp.StatusCode, rawURL)
 		return "", fmt.Errorf("HTTP %d for %s", resp.StatusCode, rawURL)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.Errorf("API_GET_READ_ERR", "Failed to read body from %s: %v", rawURL, err)
 		return "", err
 	}
 	return string(body), nil
@@ -121,8 +131,10 @@ func (c *Client) Post(rawURL string, referer string, cookies []*http.Cookie, for
 }
 
 func (c *Client) GetRawBytes(rawURL string) ([]byte, error) {
+	logger.Infof("API_GET_BYTES", "GET raw bytes request: %s", rawURL)
 	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
+		logger.Errorf("API_BYTES_ERR", "Failed creating raw bytes request for %s: %v", rawURL, err)
 		return nil, err
 	}
 
@@ -136,13 +148,20 @@ func (c *Client) GetRawBytes(rawURL string) ([]byte, error) {
 
 	resp, err := c.inner.Do(req)
 	if err != nil {
+		logger.Errorf("API_BYTES_ERR", "GET raw bytes failed for %s: %v", rawURL, err)
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
+		logger.Errorf("API_BYTES_BAD_STATUS", "HTTP %d returned for raw bytes from %s", resp.StatusCode, rawURL)
 		return nil, fmt.Errorf("HTTP %d for %s", resp.StatusCode, rawURL)
 	}
 
-	return io.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logger.Errorf("API_BYTES_READ_ERR", "Failed to read raw bytes from %s: %v", rawURL, err)
+		return nil, err
+	}
+	return data, nil
 }

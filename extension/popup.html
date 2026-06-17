@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    :root {
+      --bg-color: #0d1117;
+      --card-bg: #161b22;
+      --border-color: #30363d;
+      --text-color: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent-color: #58a6ff;
+      --accent-hover: #1f6feb;
+      --success-color: #2ea44f;
+      --success-hover: #2c974b;
+    }
+
+    body {
+      width: 320px;
+      margin: 0;
+      padding: 16px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      margin: 0;
+    }
+
+    .domain {
+      font-size: 12px;
+      color: var(--text-muted);
+      word-break: break-all;
+    }
+
+    .text-area-wrapper {
+      position: relative;
+    }
+
+    textarea {
+      width: 100%;
+      height: 120px;
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-color);
+      font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+      font-size: 12px;
+      padding: 8px;
+      box-sizing: border-box;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      border-color: var(--accent-color);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    button {
+      flex: 1;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease-in-out;
+    }
+
+    .btn-primary {
+      background-color: var(--accent-color);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: #21262d;
+      border-color: #8b949e;
+    }
+
+    .btn-success {
+      background-color: var(--success-color);
+      color: #ffffff;
+    }
+
+    .btn-success:hover {
+      background-color: var(--success-hover);
+    }
+
+    .status-text {
+      font-size: 12px;
+      text-align: center;
+      margin: 0;
+    }
+
+    .status-success {
+      color: #3fb950;
+    }
+
+    .status-error {
+      color: #f85149;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="title">Zensu Cookie Exporter</h1>
+      <div class="domain" id="domain-text">Loading tab info...</div>
+    </div>
+    
+    <div class="text-area-wrapper">
+      <textarea id="cookie-output" readonly placeholder="No cookies loaded yet."></textarea>
+    </div>
+
+    <div class="button-group">
+      <button id="btn-copy" class="btn-primary" disabled>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+        Copy Cookies
+      </button>
+      <button id="btn-refresh" class="btn-secondary">
+        Refresh
+      </button>
+    </div>
+
+    <p id="status-message" class="status-text"></p>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

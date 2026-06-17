@@ -900,3 +900,104 @@ input[type="text"]:focus, select:focus, textarea:focus {
     justify-content: flex-end;
     gap: 12px;
 }
+
+/* Offline Mode Styling */
+.offline-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: #7f1d1d;
+    color: #fca5a5;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    z-index: 9999;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+body.is-offline {
+    padding-top: 36px;
+}
+
+body.is-offline input,
+body.is-offline button,
+body.is-offline select,
+body.is-offline textarea {
+    opacity: 0.6;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+body.is-offline .sidebar {
+    pointer-events: auto !important;
+}
+
+body.is-offline .sidebar button {
+    opacity: 1;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+body.is-offline .modal-close,
+body.is-offline #modal-cancel-btn,
+body.is-offline .btn-cancel {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    cursor: pointer !important;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-100%); }
+    to { transform: translateY(0); }
+}
+
+/* Retry & Cancel Button & Failed Row Styling */
+.btn-retry,
+.btn-cancel {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-retry {
+    margin-right: 8px;
+}
+
+.btn-cancel {
+    margin-right: 4px;
+}
+
+.btn-retry:hover,
+.btn-cancel:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.tiny-ep-row.failed-row {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    opacity: 0.5;
+}
+
+.tiny-ep-row.failed-row .progress-bar {
+    background: rgba(255, 255, 255, 0.15) !important;
+    box-shadow: none !important;
+}
+
+.tiny-ep-row.failed-row .tiny-ep-pct,
+.tiny-ep-row.failed-row .tiny-ep-num {
+    color: var(--text-secondary) !important;
+}

@@ -1,104 +1,54 @@
 # Zensu
 
-Zensu is a high-performance downloader for AnimePahe, featuring an integrated graphical user interface alongside a modular command-line interface (CLI) for advanced usage and terminal environments (including Android Termux).
-
-## Features
-
-- **Chrome TLS Fingerprinting:** Powered by `bogdanfinn/tls-client` to seamlessly bypass Cloudflare security layers.
-- **Pure-Go Dean Edwards Deobfuscator:** 100% native Javascript packer decompression inside Go, removing runtime dependencies on Node.js or external script interpreters.
-- **Self-Healing FFmpeg Engine:** If `ffmpeg` is not found on your system, Zensu automatically downloads and extracts the correct architecture-specific binary (stored in a local `./bin/` subfolder next to the binary) at runtime.
-- **Network Glitch Resilience:**
-  - **Direct Downloads:** Supports network-failure retries (up to 5 times) and connection resuming using HTTP `Range` headers.
-  - **HLS Downloads:** Configures robust HLS segment reconnect options dynamically within FFmpeg.
-- **AppData Configuration Migration:** Settings are saved directly to the user's OS-native configuration folders (`%APPDATA%/zensu/config.json` on Windows, and `~/.config/zensu/config.json` on Linux/Android) to protect config data across installations.
-- **Dynamic Mirror/Domain Resolution:** Modify mirror domains directly in Settings to support AnimePahe domain changes without updating the app.
-- **Intelligent Local Directory Scanning:** Checks your download directory and automatically flags completed/saved episodes in selection menus.
+Zensu is a high-performance AnimePahe downloader featuring a premium desktop GUI and an interactive terminal-based CLI.
 
 ---
 
-## Deliverables & Output Binaries
+## 🔌 Chrome Extension Usage
 
-After building, Zensu generates compile assets under the `build/bin/` output directories:
-- **`build/bin/zensu.exe`:** Premium fixed-size desktop application (Windows).
-- **`build/bin/cli/zensu-cli.exe`:** Windows CLI application.
-- **`build/bin/cli/zensu-cli`:** Linux AMD64 CLI application.
-- **`build/bin/cli/zensu-termux`:** Android/Termux ARM64 CLI application.
+The Chrome Extension allows you to easily sync clearance cookies from your browser to Zensu.
 
----
-
-## Setup & Compilation
-
-To set up the development environment and compile Zensu, follow these steps:
-
-### 1. Run the Setup Environment Script
-This checks for **Go** and **Node.js** dependencies, and automatically installs the **Wails CLI** tool if it is not present.
-
-* **On Windows (PowerShell):**
-  ```powershell
-  .\setup.ps1
-  ```
-* **On Linux / macOS (Bash):**
-  ```bash
-  chmod +x setup.sh
-  ./setup.sh
-  ```
-
-### 2. Compile All Targets
-Once setup is complete, run the build script to compile the Windows GUI desktop app along with all CLI binaries (Windows, Linux, Android/Termux):
-
-* **On Windows (PowerShell/Git Bash):**
-  ```bash
-  ./build.sh
-  ```
-* **On Linux / macOS:**
-  ```bash
-  chmod +x build.sh
-  ./build.sh
-  ```
+1. Open Chrome and navigate to `chrome://extensions/`.
+2. Enable **Developer mode** (top-right toggle).
+3. Click **Load unpacked** and select the `extension/` folder in this repository.
+4. Navigate to `https://animepahe.pw`. 
+5. Open the extension icon, copy the generated cookies, and paste them into Zensu settings.
 
 ---
 
-## Configuration Settings
-Configuration is initialized automatically. On first startup, the **Download Directory** (`downloadDir`) is automatically set to your user home `Videos/Anime` folder. To bypass Cloudflare blocks, you must update credentials via the Settings Tab (GUI) or your system's `config.json` file:
-* **Windows path:** `%APPDATA%\zensu\config.json`
-* **Linux/Android path:** `~/.config/zensu/config.json`
+## 💻 CLI Usage
 
-```json
-{
-  "ua": "Your browser User-Agent",
-  "cf": "cf_clearance cookie value",
-  "cookies": "Full cookie string from browser devtools",
-  "downloadDir": "C:\\Users\\Username\\Videos\\Anime",
-  "maxParallel": 3,
-  "quality": "1080",
-  "audio": "jpn",
-  "domain": "https://animepahe.pw"
-}
+Run the CLI for interactive terminal-based downloads:
+
+* **Windows**: `build\bin\cli\zensu-cli.exe`
+* **Linux / Termux**: `./build/bin/cli/zensu-cli` (or `./build/bin/cli/zensu-termux`)
+* **How to Use**:
+  1. Launch the executable.
+  2. Type your search query and hit Enter.
+  3. Select the anime from the list of search results.
+  4. Select episodes to download (e.g., `1,2,3` or `1-5`).
+
+---
+
+## 🛠️ Build & Setup
+
+1. **Initialize Environment**:
+   * Windows: `.\setup.ps1`
+   * Linux / Termux / macOS: `chmod +x setup.sh && ./setup.sh`
+2. **Compile Targets**:
+   * Run `./build.sh` to compile GUI and CLI binaries to the `build/bin/` folder.
+
+---
+
+## 🐧 Linux & Android/Termux Setup
+
+On Linux and Android (Termux), install `ffmpeg` before running the CLI:
+
+* **Linux**: `sudo apt install ffmpeg`
+* **Android (Termux)**: `pkg install ffmpeg`
+
+Run:
+```bash
+chmod +x zensu-cli
+./zensu-cli
 ```
-
-### Fetching Cookie Credentials:
-1. Open your browser and navigate to `animepahe.pw` (or your configured domain).
-2. Press `F12` to open DevTools, select the **Network** tab, and reload the page.
-3. Click any document request to the domain.
-4. Copy the full `cookie:` request header and paste it as `"cookies"`.
-5. Copy the individual `cf_clearance=...` cookie value and paste it as `"cf"`.
-6. Copy the browser's User-Agent string and paste it as `"ua"`.
-
----
-
-## Termux / Android Installation (CLI)
-
-You can run the terminal-friendly client (`zensu-termux`) on Android devices:
-
-1. **Install Termux** from F-Droid.
-2. **Install FFmpeg and dependencies:**
-   ```bash
-   pkg update && pkg upgrade
-   pkg install ffmpeg
-   ```
-3. **Download or push `zensu-termux`:** Place the compiled `zensu-termux` binary onto your device.
-4. **Grant permissions & Run:**
-   ```bash
-   chmod +x zensu-termux
-   ./zensu-termux
-   ```

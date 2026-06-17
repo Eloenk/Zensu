@@ -15,6 +15,7 @@ import (
 	"zensu/internal/config"
 	"zensu/internal/dl"
 	"zensu/internal/kwik"
+	"zensu/internal/logger"
 	"zensu/internal/ui"
 )
 
@@ -27,6 +28,10 @@ func sanitizeName(name string) string {
 }
 
 func main() {
+	if err := logger.Init(); err != nil {
+		fmt.Printf("Error initializing logger: %v\n", err)
+	}
+	defer logger.Close()
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -260,6 +265,8 @@ func checkErr(err error) {
 }
 
 func fatalf(format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	logger.Error("FATAL", msg)
 	fmt.Fprintf(os.Stderr, "  \033[31m[ERROR]\033[0m "+format, args...)
 	os.Exit(1)
 }
