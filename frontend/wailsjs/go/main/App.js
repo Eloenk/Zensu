@@ -10,6 +10,10 @@ export function ClearProgress() {
   return window['go']['main']['App']['ClearProgress']();
 }
 
+export function FetchCredentialsFromChrome() {
+  return window['go']['main']['App']['FetchCredentialsFromChrome']();
+}
+
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }

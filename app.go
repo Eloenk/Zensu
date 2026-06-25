@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"zensu/internal/api"
+	"zensu/internal/chrome"
 	"zensu/internal/config"
 	"zensu/internal/dl"
 	"zensu/internal/kwik"
@@ -43,6 +44,58 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	go a.autoCheckAndResolveCredentials()
+}
+
+func (a *App) autoCheckAndResolveCredentials() {
+	// Wait a moment for Wails to initialize and show the UI before launching Chrome
+	time.Sleep(1 * time.Second)
+
+	logger.Infof("APP_STARTUP_CHECK", "Checking Cloudflare clearance credentials...")
+	cfg, err := config.Load()
+	if err != nil {
+		logger.Errorf("APP_CONFIG_ERR", "Failed to load config: %v", err)
+		return
+	}
+
+	needsSolve := cfg.UA == "" || cfg.CF == ""
+	if !needsSolve {
+		client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.Domain)
+		if err == nil {
+			if connErr := client.TestConnection(); connErr != nil {
+				logger.Warnf("APP_STARTUP_CONN_FAIL", "Connection test failed: %v", connErr)
+				needsSolve = true
+			} else {
+				logger.Infof("APP_STARTUP_CONN_OK", "Connection test passed! Clearance is valid.")
+			}
+		} else {
+			needsSolve = true
+		}
+	}
+
+	if needsSolve {
+		logger.Infof("APP_STARTUP_RESOLVE", "Clearance credentials missing or invalid. Launching Chrome to automatically resolve...")
+		credentials, err := chrome.FetchCredentials(cfg.Domain)
+		if err != nil {
+			logger.Errorf("APP_STARTUP_CHROME_ERR", "Failed to automatically resolve credentials via Chrome: %v", err)
+			return
+		}
+
+		cfg.UA = credentials.UA
+		cfg.CF = credentials.CF
+		cfg.Cookies = "cf_clearance=" + credentials.CF
+		if err := cfg.Save(); err != nil {
+			logger.Errorf("APP_CONFIG_SAVE_ERR", "Failed to save auto-resolved config: %v", err)
+			return
+		}
+
+		logger.Infof("APP_STARTUP_RESOLVE_OK", "Successfully resolved and saved clearance credentials.")
+		// Emit Wails event to tell the frontend to reload settings input fields
+		wailsRuntime.EventsEmit(a.ctx, "credentials_updated", map[string]string{
+			"ua": credentials.UA,
+			"cf": credentials.CF,
+		})
+	}
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -162,6 +215,27 @@ func (a *App) SelectDirectory() (string, error) {
 
 func (a *App) GetConfig() (*config.Config, error) {
 	return config.Load()
+}
+
+func (a *App) FetchCredentialsFromChrome() (map[string]string, error) {
+	logger.Infof("APP_FETCH_CREDENTIALS", "Triggering Chrome credentials solver...")
+	cfg, err := config.Load()
+	if err != nil {
+		logger.Errorf("APP_CONFIG_ERR", "Failed to load config: %v", err)
+		return nil, fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	credentials, err := chrome.FetchCredentials(cfg.Domain)
+	if err != nil {
+		logger.Errorf("APP_CHROME_CDP_ERR", "Failed to fetch credentials via Chrome: %v", err)
+		return nil, fmt.Errorf("failed to fetch credentials via Chrome: %w", err)
+	}
+
+	logger.Infof("APP_FETCH_CREDENTIALS_OK", "Successfully fetched credentials from Chrome: UA length=%d, CF length=%d", len(credentials.UA), len(credentials.CF))
+	return map[string]string{
+		"ua": credentials.UA,
+		"cf": credentials.CF,
+	}, nil
 }
 
 func (a *App) SaveConfig(ua, cf, downloadDir, quality, audio, domain string, maxParallel int) error {

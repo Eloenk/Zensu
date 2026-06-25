@@ -1,73 +1,131 @@
-# Zensu
+<p align="center">
+  <img src="assets/zensu_banner.png" alt="Zensu Banner" width="100%" style="border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);" />
+</p>
 
-Zensu is a high-performance downloader for AnimePahe, featuring a premium glassmorphic dark user interface (powered by Wails + Vite/Vanilla JS) alongside a modular command-line interface (CLI) for advanced usage and terminal environments (including Android Termux).
+<p align="center">
+  <img src="https://img.shields.io/badge/Language-Go%20%7C%20JS-blueviolet?style=for-the-badge&logo=go&logoColor=white" alt="Language" />
+  <img src="https://img.shields.io/badge/Framework-Wails%20v2-00F2FE?style=for-the-badge&logo=wails&logoColor=black" alt="Framework" />
+  <img src="https://img.shields.io/badge/Bypass-Chrome%20CDP%20%7C%20TLS-ff4a5a?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Bypass" />
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Android-green?style=for-the-badge" alt="Platform" />
+</p>
 
----
-
-## ✨ Features
-
-- **Chrome TLS Fingerprinting:** Powered by `bogdanfinn/tls-client` to seamlessly bypass Cloudflare security layers.
-- **Pure-Go Dean Edwards Deobfuscator:** 100% native Javascript packer decompression inside Go, removing runtime dependencies on Node.js or external script interpreters.
-- **Self-Healing FFmpeg Engine:** If `ffmpeg` is not found on your system, Zensu automatically downloads and extracts the correct architecture-specific binary (stored in a local `./bin/` subfolder next to the binary) at runtime.
-- **Network Glitch Resilience:**
-  - **Direct Downloads:** Supports network-failure retries (up to 5 times) and connection resuming using HTTP `Range` headers.
-  - **HLS Downloads:** Configures robust HLS segment reconnect options dynamically within FFmpeg.
-- **AppData Configuration Migration:** Settings are saved directly to the user's OS-native configuration folders (`%APPDATA%/zensu/config.json` on Windows, and `~/.config/zensu/config.json` on Linux/Android) to protect config data across installations.
-- **Dynamic Mirror/Domain Resolution:** Modify mirror domains directly in Settings to support AnimePahe domain changes without updating the app.
-- **Intelligent Local Directory Scanning:** Checks your download directory and automatically flags completed/saved episodes in selection menus.
-
----
-
-## 🔌 Chrome Extension Usage
-
-The Chrome Extension allows you to easily sync clearance cookies from your browser to Zensu.
-
-1. Open Chrome and navigate to `chrome://extensions/`.
-2. Enable **Developer mode** (top-right toggle).
-3. Click **Load unpacked** and select the `extension/` folder in this repository.
-4. Navigate to `https://animepahe.pw`. 
-5. Open the extension icon, copy the generated cookies, and paste them into Zensu settings.
+<h1 align="center">
+  <img src="assets/appicon.png" alt="Zensu Logo" width="70" style="border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08);" /><br>
+  Zensu
+</h1>
+<p align="center"><b>A premium, glassmorphic dark-themed downloader for AnimePahe.</b><br>
+Features native TLS fingerprinting, automated Cloudflare solver, and modular multi-platform runtimes (Desktop GUI + CLI).
+</p>
 
 ---
 
-## 💻 CLI Usage
+## ⚡ Highlights
 
-Run the CLI for interactive terminal-based downloads:
+<table width="100%">
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🚀 Pure Speed & Power</h3>
+      <ul>
+        <li><b>Concurrent Downloads:</b> Segmented parallel streams for maximum network utilization.</li>
+        <li><b>TLS Fingerprinting:</b> Client hello simulation to slip past bot blockers undetected.</li>
+        <li><b>HLS Resiliency:</b> Automatic recovery and dynamic fragment concatenation.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3>🧠 Self-Healing System</h3>
+      <ul>
+        <li><b>Chrome CDP Solver:</b> Automated launch of debug browser to harvest clearance tokens.</li>
+        <li><b>Auto-FFmpeg Resolver:</b> Downloads and hooks architecture-specific binaries on-the-fly.</li>
+        <li><b>Zero Node.js dependency:</b> Native Go Edwards Deobfuscator executes JavaScript packers.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
+---
+
+## 🌀 Automatic Clearance Workflow
+
+Zensu operates with a smart **self-healing authentication loop**. It checks connection health silently on startup, resolving clearance issues *only* when necessary:
+
+```mermaid
+graph TD
+    A([Launch Zensu]) --> B{Test Connection}
+    B -- "Clearance Valid (200 OK)" --> C[Ready to Search & Download]
+    B -- "Expired/Missing (403 Blocked)" --> D[Launch Debug Chrome]
+    D --> E[User/Auto Solves Cloudflare Challenge]
+    E --> F[Extract cf_clearance & User-Agent]
+    F --> G[Save Config & Terminate Chrome]
+    G --> C
+    
+    style A fill:#1a1b26,stroke:#7aa2f7,stroke-width:2px,color:#fff
+    style B fill:#1a1b26,stroke:#e0af68,stroke-width:2px,color:#fff
+    style C fill:#1a1b26,stroke:#9ece6a,stroke-width:2px,color:#fff
+    style D fill:#1a1b26,stroke:#f7768e,stroke-width:2px,color:#fff
+    style G fill:#1a1b26,stroke:#73daca,stroke-width:2px,color:#fff
+```
+
+---
+
+## 🛠️ Build & Installation
+
+Get Zensu running on your machine with a few terminal commands:
+
+> [!NOTE]
+> Ensure you have Go v1.22+ and Node.js installed to build from source.
+
+### 1. Initialize Environment
+Choose the setup script matching your operating system:
+* **Windows (PowerShell)**: 
+  ```powershell
+  .\setup.ps1
+  ```
+* **Linux / Termux / macOS (Shell)**: 
+  ```bash
+  chmod +x setup.sh && ./setup.sh
+  ```
+
+### 2. Compile Targets
+* **Windows (PowerShell)**: 
+  ```powershell
+  $env:PATH = "C:\Program Files\Go\bin;" + $env:PATH; .\build.ps1
+  ```
+* **Linux / macOS (Shell)**: 
+  ```bash
+  ./build.sh
+  ```
+
+All compiled binaries will be built into the `build/` directory.
+
+---
+
+## 🎮 Interface Modes
+
+### 🪐 Desktop GUI
+Launch the visual binary: `.\build\bin\zensu.exe`
+- **Zero-Click Bypass:** Verifies cookies on startup, opening Chrome in the background only if clearance expired.
+- **Glassmorphic UI:** A dark, visually pleasing user interface styled for fluid animations.
+- **Interactive Directory Picker:** Scan local directories for existing episodes dynamically.
+
+### 💻 Command-Line Interface (CLI)
+For lightweight or remote terminal environments (including Termux/SSH):
 * **Windows**: `build\bin\cli\zensu-cli.exe`
-* **Linux / Termux**: `./build/bin/cli/zensu-cli` (or `./build/bin/cli/zensu-termux`)
-* **How to Use**:
-  1. Launch the executable.
-  2. Type your search query and hit Enter.
-  3. Select the anime from the list of search results.
-  4. Select episodes to download (e.g., `1,2,3` or `1-5`).
+* **Linux**: `./build/bin/cli/zensu-cli`
+* **Android/Termux**: `./build/bin/cli/zensu-termux`
 
 ---
 
-## 🛠️ Build & Setup
+## ⚙️ App Configurations
 
-To set up the development environment and compile Zensu:
-
-1. **Initialize Environment**:
-   - Windows: `.\setup.ps1`
-   - Linux / Termux / macOS: `chmod +x setup.sh && ./setup.sh`
-2. **Compile Targets**:
-   - Run `./build.sh` to compile GUI and CLI binaries to the `build/bin/` folder.
-
----
-
-## ⚙️ Configuration Settings
-
-Configuration is initialized automatically. On first startup, the **Download Directory** (`downloadDir`) is automatically set to your user home `Videos/Anime` folder. To bypass Cloudflare blocks, you must update credentials via the Settings Tab (GUI) or your system's `config.json` file:
+Your preferences are managed automatically in OS-native app data directories:
 * **Windows path:** `%APPDATA%\zensu\config.json`
 * **Linux/Android path:** `~/.config/zensu/config.json`
 
 ```json
 {
-  "ua": "Your browser User-Agent",
-  "cf": "cf_clearance cookie value",
-  "cookies": "Full cookie string from browser devtools",
-  "downloadDir": "C:\\Users\\Username\\Videos\\Anime",
+  "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36...",
+  "cf": "your_cf_clearance_token",
+  "downloadDir": "C:\\Users\\User\\Videos\\Anime",
   "maxParallel": 3,
   "quality": "1080",
   "audio": "jpn",
@@ -75,25 +133,28 @@ Configuration is initialized automatically. On first startup, the **Download Dir
 }
 ```
 
-### Fetching Cookie Credentials manually (Alternative):
-1. Open your browser and navigate to `animepahe.pw` (or your configured domain).
-2. Press `F12` to open DevTools, select the **Network** tab, and reload the page.
-3. Click any document request to the domain.
-4. Copy the full `cookie:` request header and paste it as `"cookies"`.
-5. Copy the individual `cf_clearance=...` cookie value and paste it as `"cf"`.
-6. Copy the browser's User-Agent string and paste it as `"ua"`.
-
 ---
 
-## 🐧 Linux & Android/Termux Setup
+## 📂 Developer Bypass Fallbacks
 
-On Linux and Android (Termux), install `ffmpeg` before running the CLI:
+If automatic Chrome CDP extraction is not preferred, Zensu offers two alternative manual clearance flows:
 
-* **Linux**: `sudo apt install ffmpeg`
-* **Android (Termux)**: `pkg install ffmpeg`
+<details>
+<summary><b>Option A: Chrome Extension (Click to Expand)</b></summary>
+<br>
 
-Run:
-```bash
-chmod +x zensu-cli
-./zensu-cli
-```
+1. Open Chrome and navigate to `chrome://extensions/`.
+2. Enable **Developer mode** toggle (top-right).
+3. Click **Load unpacked** and select the `extension/` directory.
+4. Visit `https://animepahe.pw`, open the Zensu extension popup, and copy the cookie payloads.
+</details>
+
+<details>
+<summary><b>Option B: Manual Header Copy (Click to Expand)</b></summary>
+<br>
+
+1. Navigate to your mirror domain, press `F12` for DevTools.
+2. Select the **Network** tab and reload the page.
+3. Select any document request, and copy the `cookie:` header string, `cf_clearance` value, and `User-Agent`.
+4. Paste them directly into the GUI settings panel or your `config.json` file.
+</details>

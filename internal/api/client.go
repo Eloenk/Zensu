@@ -165,3 +165,9 @@ func (c *Client) GetRawBytes(rawURL string) ([]byte, error) {
 	}
 	return data, nil
 }
+
+func (c *Client) TestConnection() error {
+	_, err := c.Get(c.domain, nil)
+	return err
+}
+

@@ -1,8 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "=== Zensu Development Environment Setup ==="
+echo "=== Zensu Development Environment Setup & Build ==="
 echo ""
+
+# Ensure user's Go bin directory is in the path
+export PATH="$PATH:$HOME/go/bin:$USERPROFILE/go/bin"
 
 # 1. Check Go
 if command -v go &> /dev/null; then
@@ -23,19 +26,7 @@ else
 fi
 
 # 3. Check Wails
-WAILS_CMD="wails"
-wails_installed=false
-
 if command -v wails &> /dev/null; then
-    wails_installed=true
-else
-    if [ -f "$HOME/go/bin/wails" ] || [ -f "$HOME/go/bin/wails.exe" ] || [ -f "$USERPROFILE/go/bin/wails.exe" ]; then
-        wails_installed=true
-        echo "[✓] Wails is installed locally in the Go bin directory."
-    fi
-fi
-
-if [ "$wails_installed" = true ]; then
     echo "[✓] Wails CLI is installed."
 else
     echo "[!] Wails CLI is NOT installed."
@@ -48,6 +39,62 @@ else
     fi
 fi
 
+# Double check if wails is now available
+if ! command -v wails &> /dev/null; then
+    echo "[✗] Wails CLI was installed but is still not in the PATH."
+    exit 1
+fi
+
+# 4. Terminate and Clean
 echo ""
-echo "=== Environment Setup Complete! ==="
-echo "You can now run './build.sh' to compile Zensu."
+echo "=== Starting Zensu Compilation ==="
+echo "Stopping any running Zensu instances..."
+if command -v taskkill &> /dev/null; then
+    taskkill //F //IM zensu.exe &> /dev/null || true
+    taskkill //F //IM zensu-cli.exe &> /dev/null || true
+fi
+if command -v killall &> /dev/null; then
+    killall zensu &> /dev/null || true
+    killall zensu-cli &> /dev/null || true
+fi
+
+echo "Cleaning old build directory..."
+rm -rf build/bin/ || true
+
+# 5. Build Desktop & CLIs
+echo "Building Zensu Desktop App via Wails..."
+wails build -clean
+
+echo "Building CLI versions..."
+mkdir -p build/bin/cli
+
+echo "  -> Windows x64 CLI..."
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o build/bin/cli/zensu-cli.exe ./cmd/
+
+echo "  -> Linux x64 CLI..."
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o build/bin/cli/zensu-cli ./cmd/
+
+echo "  -> Android / Termux ARM64 CLI..."
+GOOS=android GOARCH=arm64 go build -ldflags="-s -w" -o build/bin/cli/zensu-termux ./cmd/
+
+echo "[✓] Build complete!"
+
+# 6. Launch CLI and show user the path
+OS_TYPE="$(uname -s)"
+if [[ "$OS_TYPE" == *"MINGW"* || "$OS_TYPE" == *"MSYS"* || "$OS_TYPE" == *"CYGWIN"* ]]; then
+    CLI_PATH="build/bin/cli/zensu-cli.exe"
+else
+    CLI_PATH="build/bin/cli/zensu-cli"
+fi
+
+ABS_CLI_PATH="$(cd "$(dirname "$CLI_PATH")" && pwd)/$(basename "$CLI_PATH")"
+
+echo ""
+echo "============================================="
+echo "Zensu CLI is located at: $ABS_CLI_PATH"
+echo "Automatically launching CLI..."
+echo "============================================="
+echo ""
+
+# Run the CLI
+"$ABS_CLI_PATH"

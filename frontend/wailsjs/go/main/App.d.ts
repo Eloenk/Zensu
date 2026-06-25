@@ -8,6 +8,8 @@ export function CancelAnimeDownloads(arg1:string):Promise<void>;
 
 export function ClearProgress():Promise<void>;
 
+export function FetchCredentialsFromChrome():Promise<Record<string, string>>;
+
 export function GetConfig():Promise<config.Config>;
 
 export function GetEpisodes(arg1:string,arg2:string):Promise<Array<main.EpisodeInfo>>;
