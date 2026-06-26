@@ -5,10 +5,12 @@ echo "Stopping any running Zensu instances..."
 if command -v taskkill &> /dev/null; then
     taskkill //F //IM zensu.exe &> /dev/null || true
     taskkill //F //IM zensu-cli.exe &> /dev/null || true
+    taskkill //F //IM ffmpeg.exe &> /dev/null || true
 fi
 if command -v killall &> /dev/null; then
     killall zensu &> /dev/null || true
     killall zensu-cli &> /dev/null || true
+    killall ffmpeg &> /dev/null || true
 fi
 
 
