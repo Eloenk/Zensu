@@ -44,29 +44,6 @@ Features native TLS fingerprinting, automated Cloudflare solver, and modular mul
 
 ---
 
-## 🌀 Automatic Clearance Workflow
-
-Zensu operates with a smart **self-healing authentication loop**. It checks connection health silently on startup, resolving clearance issues *only* when necessary:
-
-```mermaid
-graph TD
-    A([Launch Zensu]) --> B{Test Connection}
-    B -- "Clearance Valid (200 OK)" --> C[Ready to Search & Download]
-    B -- "Expired/Missing (403 Blocked)" --> D[Launch Debug Chrome]
-    D --> E[User/Auto Solves Cloudflare Challenge]
-    E --> F[Extract cf_clearance & User-Agent]
-    F --> G[Save Config & Terminate Chrome]
-    G --> C
-    
-    style A fill:#1a1b26,stroke:#7aa2f7,stroke-width:2px,color:#fff
-    style B fill:#1a1b26,stroke:#e0af68,stroke-width:2px,color:#fff
-    style C fill:#1a1b26,stroke:#9ece6a,stroke-width:2px,color:#fff
-    style D fill:#1a1b26,stroke:#f7768e,stroke-width:2px,color:#fff
-    style G fill:#1a1b26,stroke:#73daca,stroke-width:2px,color:#fff
-```
-
----
-
 ## 🛠️ Build & Installation
 
 Get Zensu running on your machine with a few terminal commands:

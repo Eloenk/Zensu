@@ -64,67 +64,11 @@ if (-not $wails) {
     exit 1
 }
 
-# 4. Terminate and Clean
+# 4. Run Build Script
 Write-Host ""
 Write-Host "=== Starting Zensu Compilation ===" -ForegroundColor Cyan
-Write-Host "Stopping any running Zensu instances..." -ForegroundColor Cyan
-Stop-Process -Name "zensu" -Force -ErrorAction SilentlyContinue
-Stop-Process -Name "zensu-cli" -Force -ErrorAction SilentlyContinue
+& .\build.ps1
 
-Write-Host "Cleaning old build directory..." -ForegroundColor Cyan
-if (Test-Path "build/bin") {
-    Remove-Item -Recurse -Force "build/bin" -ErrorAction SilentlyContinue
-}
-
-Write-Host "Building Zensu Desktop App via Wails..." -ForegroundColor Cyan
-wails build -clean
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] Wails build failed!" -ForegroundColor Red
-    exit $LASTEXITCODE
-}
-
-Write-Host "Building CLI versions..." -ForegroundColor Cyan
-if (-not (Test-Path "build/bin/cli")) {
-    New-Item -ItemType Directory -Force -Path "build/bin/cli" | Out-Null
-}
-
-$oldGoos = $env:GOOS
-$oldGoarch = $env:GOARCH
-
-try {
-    Write-Host "  -> Windows x64 CLI..." -ForegroundColor Gray
-    $env:GOOS = "windows"
-    $env:GOARCH = "amd64"
-    go build -ldflags="-s -w" -o build/bin/cli/zensu-cli.exe ./cmd/
-    if ($LASTEXITCODE -ne 0) { throw "Windows CLI build failed" }
-
-    Write-Host "  -> Linux x64 CLI..." -ForegroundColor Gray
-    $env:GOOS = "linux"
-    $env:GOARCH = "amd64"
-    go build -ldflags="-s -w" -o build/bin/cli/zensu-cli ./cmd/
-    if ($LASTEXITCODE -ne 0) { throw "Linux CLI build failed" }
-
-    Write-Host "  -> Android / Termux ARM64 CLI..." -ForegroundColor Gray
-    $env:GOOS = "android"
-    $env:GOARCH = "arm64"
-    go build -ldflags="-s -w" -o build/bin/cli/zensu-termux ./cmd/
-    if ($LASTEXITCODE -ne 0) { throw "Android/Termux CLI build failed" }
-
-    Write-Host "[OK] Build complete!" -ForegroundColor Green
-}
-finally {
-    # Restore original environment variables
-    $env:GOOS = $oldGoos
-    $env:GOARCH = $oldGoarch
-}
-
-# 5. Launch CLI and show user the path
-$cliPath = Resolve-Path "build/bin/cli/zensu-cli.exe"
 Write-Host ""
-Write-Host "=============================================" -ForegroundColor Cyan
-Write-Host "Zensu CLI is located at: $cliPath" -ForegroundColor Green
-Write-Host "Automatically launching CLI..." -ForegroundColor Cyan
-Write-Host "=============================================" -ForegroundColor Cyan
-Write-Host ""
-
-& $cliPath
+Write-Host "=== Environment Setup Complete! ===" -ForegroundColor Green
+Write-Host "Zensu has been successfully built. The binaries are located in the build/bin/ folder." -ForegroundColor Green

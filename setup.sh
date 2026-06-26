@@ -5,7 +5,7 @@ echo "=== Zensu Development Environment Setup & Build ==="
 echo ""
 
 # Ensure user's Go bin directory is in the path
-export PATH="$PATH:$HOME/go/bin:$USERPROFILE/go/bin"
+export PATH="$PATH:$HOME/go/bin"
 
 # 1. Check Go
 if command -v go &> /dev/null; then
@@ -45,56 +45,12 @@ if ! command -v wails &> /dev/null; then
     exit 1
 fi
 
-# 4. Terminate and Clean
+# 4. Run Build Script
 echo ""
 echo "=== Starting Zensu Compilation ==="
-echo "Stopping any running Zensu instances..."
-if command -v taskkill &> /dev/null; then
-    taskkill //F //IM zensu.exe &> /dev/null || true
-    taskkill //F //IM zensu-cli.exe &> /dev/null || true
-fi
-if command -v killall &> /dev/null; then
-    killall zensu &> /dev/null || true
-    killall zensu-cli &> /dev/null || true
-fi
-
-echo "Cleaning old build directory..."
-rm -rf build/bin/ || true
-
-# 5. Build Desktop & CLIs
-echo "Building Zensu Desktop App via Wails..."
-wails build -clean
-
-echo "Building CLI versions..."
-mkdir -p build/bin/cli
-
-echo "  -> Windows x64 CLI..."
-GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o build/bin/cli/zensu-cli.exe ./cmd/
-
-echo "  -> Linux x64 CLI..."
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o build/bin/cli/zensu-cli ./cmd/
-
-echo "  -> Android / Termux ARM64 CLI..."
-GOOS=android GOARCH=arm64 go build -ldflags="-s -w" -o build/bin/cli/zensu-termux ./cmd/
-
-echo "[✓] Build complete!"
-
-# 6. Launch CLI and show user the path
-OS_TYPE="$(uname -s)"
-if [[ "$OS_TYPE" == *"MINGW"* || "$OS_TYPE" == *"MSYS"* || "$OS_TYPE" == *"CYGWIN"* ]]; then
-    CLI_PATH="build/bin/cli/zensu-cli.exe"
-else
-    CLI_PATH="build/bin/cli/zensu-cli"
-fi
-
-ABS_CLI_PATH="$(cd "$(dirname "$CLI_PATH")" && pwd)/$(basename "$CLI_PATH")"
+chmod +x ./build.sh
+./build.sh
 
 echo ""
-echo "============================================="
-echo "Zensu CLI is located at: $ABS_CLI_PATH"
-echo "Automatically launching CLI..."
-echo "============================================="
-echo ""
-
-# Run the CLI
-"$ABS_CLI_PATH"
+echo "=== Setup Complete! ==="
+echo "Zensu has been successfully built. The binaries are located in the build/bin/ folder."

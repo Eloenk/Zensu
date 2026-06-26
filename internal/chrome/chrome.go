@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -122,6 +123,7 @@ func launchChrome(chromePath string, port int, profileDir string, targetURL stri
 
 	args := []string{
 		fmt.Sprintf("--remote-debugging-port=%d", port),
+		"--remote-debugging-address=127.0.0.1",
 		fmt.Sprintf("--user-data-dir=%s", profileDir),
 		"--no-first-run",
 		"--no-default-browser-check",
@@ -170,7 +172,7 @@ func getTargetTab(port int, domain string) (*Target, error) {
 	}
 
 	// Open a new tab
-	newTabURL := fmt.Sprintf("http://127.0.0.1:%d/json/new?%s", port, domain)
+	newTabURL := fmt.Sprintf("http://127.0.0.1:%d/json/new?%s", port, url.QueryEscape(domain))
 	newResp, err := client.Get(newTabURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open new tab: %w", err)

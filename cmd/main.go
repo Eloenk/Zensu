@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"math"
 	"os"
@@ -350,7 +351,8 @@ func refreshCredentials(cfg *config.Config) error {
 	fmt.Println("         (Please click/solve any verification challenge if prompted)")
 	credentials, err := chrome.FetchCredentials(cfg.Domain)
 	if err != nil {
-		return err
+		logger.Errorf("CLI_AUTO_RESOLVE_FAIL", "Chrome auto-resolve failed: %v", err)
+		return promptManualCredentials(cfg)
 	}
 	cfg.UA = credentials.UA
 	cfg.CF = credentials.CF
@@ -359,6 +361,56 @@ func refreshCredentials(cfg *config.Config) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 	fmt.Println("  \033[32m[SUCCESS]\033[0m Credentials fetched and saved successfully!")
+	return nil
+}
+
+func promptManualCredentials(cfg *config.Config) error {
+	fmt.Println("\n  \033[33m[WARN]\033[0m Could not automatically resolve credentials.")
+	fmt.Println("  Please manually enter your Cloudflare clearance credentials.")
+	
+	reader := bufio.NewReader(os.Stdin)
+	
+	fmt.Printf("  Enter User-Agent [%s]: ", cfg.UA)
+	ua, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	ua = strings.TrimSpace(ua)
+	if ua == "" {
+		ua = cfg.UA
+	}
+	
+	fmt.Println("  Enter Cookies/cf_clearance:")
+	fmt.Println("  (Tip: Go to animepahe, open the Zensu extension or developer tools,")
+	fmt.Println("   and copy your cf_clearance value or the full cookie string)")
+	fmt.Print("  Cookies: ")
+	cookies, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	cookies = strings.TrimSpace(cookies)
+	if cookies == "" {
+		cookies = cfg.Cookies
+	}
+	
+	cfg.UA = ua
+	cfg.Cookies = cookies
+	if strings.Contains(cookies, "cf_clearance=") {
+		parts := strings.Split(cookies, "cf_clearance=")
+		if len(parts) > 1 {
+			cfg.CF = strings.Split(parts[1], ";")[0]
+		}
+	} else if !strings.Contains(cookies, "=") && len(cookies) > 20 {
+		cfg.CF = cookies
+	} else {
+		cfg.CF = cookies
+	}
+	
+	if err := cfg.Save(); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+	
+	fmt.Println("  \033[32m[SUCCESS]\033[0m Credentials saved manually!")
 	return nil
 }
 

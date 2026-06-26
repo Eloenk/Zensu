@@ -7,6 +7,7 @@ $oldGoarch = $env:GOARCH
 Write-Host "Stopping any running Zensu instances..." -ForegroundColor Cyan
 Stop-Process -Name "zensu" -Force -ErrorAction SilentlyContinue
 Stop-Process -Name "zensu-cli" -Force -ErrorAction SilentlyContinue
+Stop-Process -Name "ffmpeg" -Force -ErrorAction SilentlyContinue
 
 Write-Host "Cleaning old build directory..." -ForegroundColor Cyan
 if (Test-Path "build/bin") {
