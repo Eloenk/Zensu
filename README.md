@@ -9,6 +9,15 @@
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Android-green?style=for-the-badge" alt="Platform" />
 </p>
 
+<p align="center">
+  <a href="https://github.com/Eloenk/Zensu/releases">
+    <img src="https://img.shields.io/github/v/release/Eloenk/Zensu?style=for-the-badge&color=36a3ff" alt="Latest Release" />
+  </a>
+  <a href="https://github.com/Eloenk/Zensu/releases">
+    <img src="https://img.shields.io/badge/Download-Latest%20Binaries-brightgreen?style=for-the-badge" alt="Download" />
+  </a>
+</p>
+
 <h1 align="center">
   <img src="assets/appicon.png" alt="Zensu Logo" width="70" style="border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08);" /><br>
   Zensu
