@@ -171,7 +171,11 @@ func getTargetTab(port int, domain string) (*Target, error) {
 
 	// Open a new tab
 	newTabURL := fmt.Sprintf("http://127.0.0.1:%d/json/new?%s", port, domain)
-	newResp, err := client.Get(newTabURL)
+	req, err := http.NewRequest("PUT", newTabURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create PUT request for new tab: %w", err)
+	}
+	newResp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open new tab: %w", err)
 	}
@@ -302,10 +306,23 @@ func pollCookiesAndUA(wsURL string, domain string) (*Credentials, error) {
 	}
 }
 
+func cleanProfileDir(dir string) {
+	if dir == "" {
+		return
+	}
+	for i := 0; i < 10; i++ {
+		if err := os.RemoveAll(dir); err == nil {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
 func FetchCredentials(domain string) (*Credentials, error) {
-	port := 9222
+	port := 9322 // Use 9322 to avoid conflicts with standard 9222 ports
 	spawned := false
 	var cmd *exec.Cmd
+	var profileDir string
 
 	if !strings.HasPrefix(domain, "http://") && !strings.HasPrefix(domain, "https://") {
 		domain = "https://" + domain
@@ -321,7 +338,7 @@ func FetchCredentials(domain string) (*Credentials, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get user config dir: %w", err)
 		}
-		profileDir := filepath.Join(userConfigDir, "zensu", "chrome-profile")
+		profileDir = filepath.Join(userConfigDir, "zensu", "chrome-profile-isolated")
 
 		cmd, err = launchChrome(chromePath, port, profileDir, domain)
 		if err != nil {
@@ -340,7 +357,9 @@ func FetchCredentials(domain string) (*Credentials, error) {
 		if !ready {
 			if cmd.Process != nil {
 				_ = cmd.Process.Kill()
+				_ = cmd.Wait()
 			}
+			cleanProfileDir(profileDir)
 			return nil, fmt.Errorf("chrome started but CDP did not become active on port %d within 15 seconds", port)
 		}
 	}
@@ -349,6 +368,8 @@ func FetchCredentials(domain string) (*Credentials, error) {
 	if err != nil {
 		if spawned && cmd != nil && cmd.Process != nil {
 			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			cleanProfileDir(profileDir)
 		}
 		return nil, err
 	}
@@ -357,6 +378,8 @@ func FetchCredentials(domain string) (*Credentials, error) {
 	if err != nil {
 		if spawned && cmd != nil && cmd.Process != nil {
 			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			cleanProfileDir(profileDir)
 		} else if !spawned {
 			_ = closeTargetTab(port, target.ID)
 		}
@@ -366,6 +389,8 @@ func FetchCredentials(domain string) (*Credentials, error) {
 	if spawned && cmd != nil && cmd.Process != nil {
 		time.Sleep(500 * time.Millisecond)
 		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		cleanProfileDir(profileDir)
 	} else {
 		_ = closeTargetTab(port, target.ID)
 	}
