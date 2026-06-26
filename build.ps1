@@ -49,17 +49,35 @@ try {
     go build -ldflags="-s -w" -o build/bin/cli/zensu-cli.exe ./cmd/
     if ($LASTEXITCODE -ne 0) { throw "Windows CLI build failed" }
 
+    Write-Host "  -> Windows x64 Server..." -ForegroundColor Gray
+    $env:GOOS = "windows"
+    $env:GOARCH = "amd64"
+    go build -ldflags="-s -w" -o build/bin/cli/zensu-server.exe ./cmd/server/
+    if ($LASTEXITCODE -ne 0) { throw "Windows Server build failed" }
+
     Write-Host "  -> Linux x64 CLI..." -ForegroundColor Gray
     $env:GOOS = "linux"
     $env:GOARCH = "amd64"
     go build -ldflags="-s -w" -o build/bin/cli/zensu-cli ./cmd/
     if ($LASTEXITCODE -ne 0) { throw "Linux CLI build failed" }
 
+    Write-Host "  -> Linux x64 Server..." -ForegroundColor Gray
+    $env:GOOS = "linux"
+    $env:GOARCH = "amd64"
+    go build -ldflags="-s -w" -o build/bin/cli/zensu-server ./cmd/server/
+    if ($LASTEXITCODE -ne 0) { throw "Linux Server build failed" }
+
     Write-Host "  -> Android / Termux ARM64 CLI..." -ForegroundColor Gray
     $env:GOOS = "android"
     $env:GOARCH = "arm64"
     go build -ldflags="-s -w" -o build/bin/cli/zensu-termux ./cmd/
     if ($LASTEXITCODE -ne 0) { throw "Android/Termux CLI build failed" }
+
+    Write-Host "  -> Android / Termux ARM64 Server..." -ForegroundColor Gray
+    $env:GOOS = "android"
+    $env:GOARCH = "arm64"
+    go build -ldflags="-s -w" -o build/bin/cli/zensu-server-termux ./cmd/server/
+    if ($LASTEXITCODE -ne 0) { throw "Android/Termux Server build failed" }
 
     Write-Host "Build complete!" -ForegroundColor Green
 }
