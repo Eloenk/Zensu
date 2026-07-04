@@ -55,11 +55,11 @@ type activeJob struct {
 }
 
 type Manager struct {
-	maxParallel  int
-	ua           string
-	mu           sync.Mutex
-	progress     map[string]*JobProgress
-	jobsChan     chan Job
+	maxParallel int
+	ua          string
+	mu          sync.Mutex
+	progress    map[string]*JobProgress
+	jobsChan    chan Job
 
 	activeJobs   map[string]activeJob
 	runCounter   int64
@@ -530,13 +530,15 @@ func fetchM3U8Content(ctx context.Context, playlistURL string, ua string) (strin
 	return string(bodyBytes), nil
 }
 
-func parseM3U8(playlistURL string, content string) ([]string, []float64, error) {
+func parseM3U8(playlistURL string, content string) ([]string, []float64, string, string, error) {
 	var urls []string
 	var durations []float64
+	var keyURL string
+	var keyLine string
 
 	base, err := url.Parse(playlistURL)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", "", err
 	}
 
 	lines := strings.Split(content, "\n")
@@ -546,7 +548,24 @@ func parseM3U8(playlistURL string, content string) ([]string, []float64, error) 
 		if line == "" {
 			continue
 		}
-		if strings.HasPrefix(line, "#EXTINF:") {
+		if strings.HasPrefix(line, "#EXT-X-KEY:") {
+			idx := strings.Index(line, `URI="`)
+			if idx != -1 {
+				start := idx + 5
+				end := strings.Index(line[start:], `"`)
+				if end != -1 {
+					kURL := line[start : start+end]
+					if u, err := url.Parse(kURL); err == nil {
+						keyURL = base.ResolveReference(u).String()
+					}
+					// Replace the original URI with the local one
+					keyLine = line[:start] + "key.key" + line[start+end:]
+				}
+			} else {
+				// Fallback if key exists but URI is missing/different format
+				keyLine = line
+			}
+		} else if strings.HasPrefix(line, "#EXTINF:") {
 			commaIdx := strings.Index(line, ",")
 			var durStr string
 			if commaIdx != -1 {
@@ -566,7 +585,7 @@ func parseM3U8(playlistURL string, content string) ([]string, []float64, error) 
 			currentDuration = 0
 		}
 	}
-	return urls, durations, nil
+	return urls, durations, keyURL, keyLine, nil
 }
 
 func getM3U8Duration(playlistURL string, ua string) float64 {
@@ -574,7 +593,7 @@ func getM3U8Duration(playlistURL string, ua string) float64 {
 	if err != nil {
 		return 1440
 	}
-	_, durations, err := parseM3U8(playlistURL, content)
+	_, durations, _, _, err := parseM3U8(playlistURL, content)
 	if err != nil {
 		return 1440
 	}
@@ -625,35 +644,58 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 		return err
 	}
 
-	urls, durations, err := parseM3U8(job.URL, playlistContent)
+	urls, durations, keyURL, keyLine, err := parseM3U8(job.URL, playlistContent)
 	if err != nil {
 		logger.Errorf("DL_HLS_PARSE_ERR", "Failed to parse playlist: %v", err)
 		return err
 	}
 
-	totalDuration := 0.0
-	for _, dur := range durations {
-		totalDuration += dur
-	}
-	if totalDuration == 0 {
-		totalDuration = 1440
-	}
-
-	tmpTSPath := job.OutputPath + ".tmp.ts"
-	outF, err := os.Create(tmpTSPath)
+	// Create a temporary directory for local offline packaging
+	tempDir, err := os.MkdirTemp("", "zensu-hls-*")
 	if err != nil {
-		logger.Errorf("DL_HLS_CREATE_ERR", "Failed to create temp TS file: %v", err)
+		logger.Errorf("DL_HLS_TEMP_ERR", "Failed to create temp directory: %v", err)
 		return err
 	}
-	defer func() {
-		outF.Close()
-		os.Remove(tmpTSPath)
-	}()
+	defer os.RemoveAll(tempDir)
 
-	logger.Infof("DL_HLS_START", "Starting native HLS download of %d segments to %s", len(urls), tmpTSPath)
+	// 1. Download decryption key if present
+	if keyURL != "" {
+		req, err := http.NewRequestWithContext(ctx, "GET", keyURL, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Referer", "https://kwik.cx/")
+		req.Header.Set("User-Agent", ua)
 
-	startTime := time.Now()
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			if resp != nil {
+				resp.Body.Close()
+			}
+			logger.Errorf("DL_HLS_KEY_ERR", "Failed to fetch decryption key from %s: %v", keyURL, err)
+			return fmt.Errorf("failed to fetch HLS decryption key: %v", err)
+		}
+
+		keyPath := filepath.Join(tempDir, "key.key")
+		keyFile, err := os.Create(keyPath)
+		if err != nil {
+			resp.Body.Close()
+			return err
+		}
+		_, err = io.Copy(keyFile, resp.Body)
+		resp.Body.Close()
+		keyFile.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	logger.Infof("DL_HLS_START", "Starting native HLS download of %d segments", len(urls))
+
+	// 2. Download segments locally
 	var totalBytesDownloaded int64
+	startTime := time.Now()
 	lastPrintTime := time.Now()
 
 	for idx, segmentURL := range urls {
@@ -686,7 +728,7 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 				resp.Body.Close()
 			}
 			if err != nil {
-				reqErr = fmt.Errorf("status %d: %v", resp.StatusCode, err)
+				reqErr = err
 			} else if resp != nil {
 				reqErr = fmt.Errorf("status %d", resp.StatusCode)
 			} else {
@@ -699,11 +741,18 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 			return fmt.Errorf("failed to download segment %d: %w", idx, reqErr)
 		}
 
+		segmentPath := filepath.Join(tempDir, fmt.Sprintf("segment_%d.ts", idx))
+		segmentFile, err := os.Create(segmentPath)
+		if err != nil {
+			resp.Body.Close()
+			return err
+		}
+
 		spr := &segmentProgressReader{
 			r: resp.Body,
 			onProgress: func(n int) {
 				atomic.AddInt64(&totalBytesDownloaded, int64(n))
-				
+
 				now := time.Now()
 				if now.Sub(lastPrintTime) > 250*time.Millisecond {
 					lastPrintTime = now
@@ -713,7 +762,7 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 						bps := float64(atomic.LoadInt64(&totalBytesDownloaded)) / elapsed
 						speed = humanBytes(int64(bps)) + "/s"
 					}
-					
+
 					pct := (float64(idx) / float64(len(urls))) * 100.0
 					if pct > 100 {
 						pct = 100
@@ -724,15 +773,31 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 			},
 		}
 
-		_, err = io.Copy(outF, spr)
+		_, err = io.Copy(segmentFile, spr)
 		resp.Body.Close()
+		segmentFile.Close()
 		if err != nil {
 			logger.Errorf("DL_HLS_COPY_ERR", "Failed copying segment %d data: %v", idx, err)
 			return fmt.Errorf("failed copying segment %d data: %w", idx, err)
 		}
 	}
 
-	outF.Close()
+	// 3. Write local playlist
+	localM3U8Path := filepath.Join(tempDir, "playlist.m3u8")
+	m3u8File, err := os.Create(localM3U8Path)
+	if err != nil {
+		return err
+	}
+
+	m3u8File.WriteString("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:20\n#EXT-X-MEDIA-SEQUENCE:0\n")
+	if keyLine != "" {
+		m3u8File.WriteString(keyLine + "\n")
+	}
+	for idx, dur := range durations {
+		m3u8File.WriteString(fmt.Sprintf("#EXTINF:%f,\nsegment_%d.ts\n", dur, idx))
+	}
+	m3u8File.WriteString("#EXT-X-ENDLIST\n")
+	m3u8File.Close()
 
 	fmt.Printf("\r\033[K  E%02.0f  [HLS] packaging via ffmpeg...\n", job.EpNum)
 
@@ -763,7 +828,7 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 	}
 
 	var ffmpegArgs []string
-	ffmpegArgs = append(ffmpegArgs, "-i", tmpTSPath)
+	ffmpegArgs = append(ffmpegArgs, "-allowed_extensions", "ALL", "-protocol_whitelist", "file,crypto", "-i", "playlist.m3u8")
 	if job.HlsTranscode {
 		ffmpegArgs = append(ffmpegArgs, "-c:v", "libx264", "-c:a", "aac", "-pix_fmt", "yuv420p")
 	} else {
@@ -772,6 +837,7 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 	ffmpegArgs = append(ffmpegArgs, "-y", job.OutputPath)
 
 	cmd := exec.CommandContext(ctx, ffmpegPath, ffmpegArgs...)
+	cmd.Dir = tempDir
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
 	setHideWindow(cmd.SysProcAttr)
 
