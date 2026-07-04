@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -17,6 +16,10 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	fhttp "github.com/bogdanfinn/fhttp"
+	tlsclient "github.com/bogdanfinn/tls-client"
+	"github.com/bogdanfinn/tls-client/profiles"
 
 	"zensu/internal/logger"
 )
@@ -57,6 +60,8 @@ type activeJob struct {
 type Manager struct {
 	maxParallel int
 	ua          string
+	cookies     string
+	client      tlsclient.HttpClient
 	mu          sync.Mutex
 	progress    map[string]*JobProgress
 	jobsChan    chan Job
@@ -67,18 +72,64 @@ type Manager struct {
 	cancelledIDs map[string]time.Time // tracks IDs that were explicitly cancelled to block re-submission with a TTL
 }
 
-func NewManager(maxParallel int, ua string) *Manager {
+func NewManager(maxParallel int, ua string, cookies string) *Manager {
+	jar := tlsclient.NewCookieJar()
+
+	options := []tlsclient.HttpClientOption{
+		tlsclient.WithTimeoutSeconds(30),
+		tlsclient.WithClientProfile(profiles.Chrome_124),
+		tlsclient.WithCookieJar(jar),
+	}
+
+	client, err := tlsclient.NewHttpClient(tlsclient.NewNoopLogger(), options...)
+	if err != nil {
+		logger.Errorf("DL_CLIENT_INIT_ERR", "Failed to create tls client: %v", err)
+	}
+
 	m := &Manager{
 		maxParallel:  maxParallel,
 		ua:           ua,
+		cookies:      cookies,
+		client:       client,
 		progress:     make(map[string]*JobProgress),
 		jobsChan:     make(chan Job, 1000),
 		activeJobs:   make(map[string]activeJob),
 		cancelledIDs: make(map[string]time.Time),
 	}
+
+	m.seedCookies("https://kwik.cx")
+	m.seedCookies("https://animepahe.pw")
+
 	m.StartWorkers()
 	return m
 }
+
+func (m *Manager) seedCookies(rawURL string) {
+	if m.client == nil || m.cookies == "" {
+		return
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return
+	}
+	var fCookies []*fhttp.Cookie
+	for _, part := range strings.Split(m.cookies, ";") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		fCookies = append(fCookies, &fhttp.Cookie{
+			Name:  strings.TrimSpace(kv[0]),
+			Value: strings.TrimSpace(kv[1]),
+		})
+	}
+	m.client.SetCookies(u, fCookies)
+}
+
 
 func (m *Manager) StartWorkers() {
 	for i := 0; i < m.maxParallel; i++ {
@@ -378,22 +429,20 @@ func (m *Manager) downloadDirect(ctx context.Context, job Job) error {
 
 	tmpPath := job.OutputPath + ".tmp"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, job.URL, nil)
+	req, err := fhttp.NewRequestWithContext(ctx, fhttp.MethodHead, job.URL, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("User-Agent", m.ua)
 	req.Header.Set("Referer", "https://kwik.cx/")
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	headResp, err := client.Do(req)
+	headResp, err := m.client.Do(req)
 	var totalBytes int64
 	if err == nil {
 		totalBytes = headResp.ContentLength
 		headResp.Body.Close()
 	}
 
-	dlClient := &http.Client{Timeout: 0}
 	const maxRetries = 5
 	var downloaded int64
 
@@ -409,7 +458,7 @@ func (m *Manager) downloadDirect(ctx context.Context, job Job) error {
 			return ctx.Err()
 		}
 
-		dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, job.URL, nil)
+		dlReq, err := fhttp.NewRequestWithContext(ctx, fhttp.MethodGet, job.URL, nil)
 		if err != nil {
 			logger.Errorf("DL_DIRECT_REQ_ERR", "Failed creating request: %v", err)
 			return err
@@ -421,7 +470,7 @@ func (m *Manager) downloadDirect(ctx context.Context, job Job) error {
 			dlReq.Header.Set("Range", fmt.Sprintf("bytes=%d-", downloaded))
 		}
 
-		resp, err := dlClient.Do(dlReq)
+		resp, err := m.client.Do(dlReq)
 		if err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
@@ -436,7 +485,7 @@ func (m *Manager) downloadDirect(ctx context.Context, job Job) error {
 
 		logger.Infof("DL_DIRECT_RESP", "Attempt %d: HTTP %d", attempt, resp.StatusCode)
 
-		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
+		if resp.StatusCode != fhttp.StatusOK && resp.StatusCode != fhttp.StatusPartialContent {
 			resp.Body.Close()
 			logger.Warnf("DL_DIRECT_BAD_STATUS", "Attempt %d: HTTP %d (expected 200 or 206)", attempt, resp.StatusCode)
 			if attempt == maxRetries {
@@ -447,7 +496,7 @@ func (m *Manager) downloadDirect(ctx context.Context, job Job) error {
 		}
 
 		var f *os.File
-		if resp.StatusCode == http.StatusOK {
+		if resp.StatusCode == fhttp.StatusOK {
 			f, err = os.Create(tmpPath)
 			downloaded = 0
 		} else {
@@ -501,11 +550,8 @@ func (m *Manager) downloadDirect(ctx context.Context, job Job) error {
 	return os.Rename(tmpPath, job.OutputPath)
 }
 
-func fetchM3U8Content(ctx context.Context, playlistURL string, ua string) (string, error) {
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-	req, err := http.NewRequestWithContext(ctx, "GET", playlistURL, nil)
+func (m *Manager) fetchM3U8Content(ctx context.Context, playlistURL string, ua string) (string, error) {
+	req, err := fhttp.NewRequestWithContext(ctx, "GET", playlistURL, nil)
 	if err != nil {
 		return "", err
 	}
@@ -515,12 +561,12 @@ func fetchM3U8Content(ctx context.Context, playlistURL string, ua string) (strin
 	} else {
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 	}
-	resp, err := client.Do(req)
+	resp, err := m.client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != fhttp.StatusOK {
 		return "", fmt.Errorf("status code %d", resp.StatusCode)
 	}
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -588,8 +634,8 @@ func parseM3U8(playlistURL string, content string) ([]string, []float64, string,
 	return urls, durations, keyURL, keyLine, nil
 }
 
-func getM3U8Duration(playlistURL string, ua string) float64 {
-	content, err := fetchM3U8Content(context.Background(), playlistURL, ua)
+func (m *Manager) getM3U8Duration(playlistURL string, ua string) float64 {
+	content, err := m.fetchM3U8Content(context.Background(), playlistURL, ua)
 	if err != nil {
 		return 1440
 	}
@@ -638,7 +684,7 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 
 	fmt.Printf("\r\033[K  E%02.0f  [HLS] fetching playlist...\n", job.EpNum)
 
-	playlistContent, err := fetchM3U8Content(ctx, job.URL, ua)
+	playlistContent, err := m.fetchM3U8Content(ctx, job.URL, ua)
 	if err != nil {
 		logger.Errorf("DL_HLS_PLAYLIST_ERR", "Failed to fetch playlist: %v", err)
 		return err
@@ -660,16 +706,15 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 
 	// 1. Download decryption key if present
 	if keyURL != "" {
-		req, err := http.NewRequestWithContext(ctx, "GET", keyURL, nil)
+		req, err := fhttp.NewRequestWithContext(ctx, "GET", keyURL, nil)
 		if err != nil {
 			return err
 		}
 		req.Header.Set("Referer", "https://kwik.cx/")
 		req.Header.Set("User-Agent", ua)
 
-		client := &http.Client{Timeout: 10 * time.Second}
-		resp, err := client.Do(req)
-		if err != nil || resp.StatusCode != http.StatusOK {
+		resp, err := m.client.Do(req)
+		if err != nil || resp.StatusCode != fhttp.StatusOK {
 			if resp != nil {
 				resp.Body.Close()
 			}
@@ -704,13 +749,13 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 			return ctx.Err()
 		}
 
-		var resp *http.Response
+		var resp *fhttp.Response
 		var reqErr error
 		for retry := 0; retry < 5; retry++ {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			req, err := http.NewRequestWithContext(ctx, "GET", segmentURL, nil)
+			req, err := fhttp.NewRequestWithContext(ctx, "GET", segmentURL, nil)
 			if err != nil {
 				reqErr = err
 				break
@@ -718,9 +763,8 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 			req.Header.Set("Referer", "https://kwik.cx/")
 			req.Header.Set("User-Agent", ua)
 
-			client := &http.Client{Timeout: 30 * time.Second}
-			resp, err = client.Do(req)
-			if err == nil && resp.StatusCode == http.StatusOK {
+			resp, err = m.client.Do(req)
+			if err == nil && resp.StatusCode == fhttp.StatusOK {
 				reqErr = nil
 				break
 			}

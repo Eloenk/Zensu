@@ -80,7 +80,7 @@ func main() {
 	}
 
 	extractor := kwik.NewExtractor(cfg.UA, cfg.Cookies)
-	manager := dl.NewManager(cfg.MaxParallel, cfg.UA)
+	manager := dl.NewManager(cfg.MaxParallel, cfg.UA, cfg.Cookies)
 
 	// Handle signals for graceful shutdown on Ctrl+C / terminal close
 	sigChan := make(chan os.Signal, 1)
@@ -112,7 +112,7 @@ func main() {
 			fatalf("failed to re-init client: %v\n", err)
 		}
 		extractor = kwik.NewExtractor(cfg.UA, cfg.Cookies)
-		manager = dl.NewManager(cfg.MaxParallel, cfg.UA)
+		manager = dl.NewManager(cfg.MaxParallel, cfg.UA, cfg.Cookies)
 		results, err = client.Search(searchTerm)
 	}
 	if err != nil {
@@ -146,7 +146,7 @@ func main() {
 			fatalf("failed to re-init client: %v\n", err)
 		}
 		extractor = kwik.NewExtractor(cfg.UA, cfg.Cookies)
-		manager = dl.NewManager(cfg.MaxParallel, cfg.UA)
+		manager = dl.NewManager(cfg.MaxParallel, cfg.UA, cfg.Cookies)
 		episodes, err = client.GetEpisodes(slug)
 	}
 	if err != nil {

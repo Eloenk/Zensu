@@ -292,7 +292,7 @@ func (a *App) StartDownload(animeTitle, slug string, epNums []float64) error {
 
 	a.client = client
 	if a.dlManager == nil {
-		a.dlManager = dl.NewManager(cfg.MaxParallel, cfg.UA)
+		a.dlManager = dl.NewManager(cfg.MaxParallel, cfg.UA, cfg.Cookies)
 	} else {
 		a.dlManager.SetMaxParallel(cfg.MaxParallel)
 	}
