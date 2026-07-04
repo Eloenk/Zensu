@@ -802,16 +802,25 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 					lastPrintTime = now
 					elapsed := time.Since(startTime).Seconds()
 					speed := ""
+					eta := ""
 					if elapsed > 0 {
 						bps := float64(atomic.LoadInt64(&totalBytesDownloaded)) / elapsed
 						speed = humanBytes(int64(bps)) + "/s"
+						if idx > 0 {
+							remainingSec := float64(len(urls)-idx) * elapsed / float64(idx)
+							if remainingSec < 60 {
+								eta = fmt.Sprintf("%.0fs", remainingSec)
+							} else {
+								eta = fmt.Sprintf("%.0fm %.0fs", remainingSec/60, remainingSec-float64(int(remainingSec/60)*60))
+							}
+						}
 					}
 
 					pct := (float64(idx) / float64(len(urls))) * 100.0
 					if pct > 100 {
 						pct = 100
 					}
-					m.UpdateProgress(job.ID, job.AnimeTitle, job.EpNum, "downloading", pct, speed, "", "")
+					m.UpdateProgress(job.ID, job.AnimeTitle, job.EpNum, "downloading", pct, speed, eta, "")
 					printProgress(job.EpNum, atomic.LoadInt64(&totalBytesDownloaded), 0, false)
 				}
 			},
