@@ -23,12 +23,13 @@ import (
 )
 
 type Job struct {
-	ID         string
-	AnimeTitle string
-	EpNum      float64
-	URL        string
-	IsHLS      bool
-	OutputPath string
+	ID           string
+	AnimeTitle   string
+	EpNum        float64
+	URL          string
+	IsHLS        bool
+	OutputPath   string
+	HlsTranscode bool
 }
 
 type Result struct {
@@ -212,12 +213,6 @@ func (m *Manager) downloadWorker(job Job) {
 	} else {
 		logger.Infof("DL_DONE", "%s download finished: %s", dlType, job.ID)
 		m.UpdateProgress(job.ID, job.AnimeTitle, job.EpNum, "done", 100, "", "", "")
-		go func(id string) {
-			time.Sleep(3 * time.Second)
-			m.mu.Lock()
-			delete(m.progress, id)
-			m.mu.Unlock()
-		}(job.ID)
 	}
 }
 
@@ -605,10 +600,21 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 		"-reconnect_delay_max", "5",
 		"-headers", "Referer: https://kwik.cx/\r\n",
 		"-progress", "pipe:1",
-		"-i", job.URL,
-		"-c", "copy",
-		"-y", job.OutputPath,
 	}
+
+	if !job.HlsTranscode {
+		args = append(args, "-fflags", "+genpts")
+	}
+
+	args = append(args, "-i", job.URL)
+
+	if job.HlsTranscode {
+		args = append(args, "-c:v", "libx264", "-c:a", "aac", "-pix_fmt", "yuv420p")
+	} else {
+		args = append(args, "-c", "copy")
+	}
+
+	args = append(args, "-y", job.OutputPath)
 
 	logger.Infof("DL_HLS_START", "Starting ffmpeg download to %s, total duration: %.2fs", job.OutputPath, totalDuration)
 

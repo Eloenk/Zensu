@@ -14,6 +14,15 @@ var (
 	logger  *log.Logger
 )
 
+type stdoutWriter struct {
+	w io.Writer
+}
+
+func (sw *stdoutWriter) Write(p []byte) (n int, err error) {
+	_, _ = sw.w.Write(p)
+	return len(p), nil
+}
+
 func Init() error {
 	dir, err := os.UserConfigDir()
 	if err != nil {
@@ -43,7 +52,7 @@ func Init() error {
 	}
 	logFile = file
 
-	mw := io.MultiWriter(os.Stdout, logFile)
+	mw := io.MultiWriter(logFile, &stdoutWriter{w: os.Stdout})
 	logger = log.New(mw, "", 0)
 	
 	Infof("STARTUP", "Logger initialized at %s", sanitizePath(finalLogPath))

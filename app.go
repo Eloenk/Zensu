@@ -238,8 +238,8 @@ func (a *App) FetchCredentialsFromChrome() (map[string]string, error) {
 	}, nil
 }
 
-func (a *App) SaveConfig(ua, cf, downloadDir, quality, audio, domain string, maxParallel int) error {
-	logger.Infof("APP_CONFIG_SAVE", "Saving configuration: domain=%s quality=%s audio=%s maxParallel=%d downloadDir=%s", domain, quality, audio, maxParallel, downloadDir)
+func (a *App) SaveConfig(ua, cf, downloadDir, quality, audio, domain string, maxParallel int, hlsTranscode bool) error {
+	logger.Infof("APP_CONFIG_SAVE", "Saving configuration: domain=%s quality=%s audio=%s maxParallel=%d downloadDir=%s hlsTranscode=%t", domain, quality, audio, maxParallel, downloadDir, hlsTranscode)
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -251,6 +251,7 @@ func (a *App) SaveConfig(ua, cf, downloadDir, quality, audio, domain string, max
 	cfg.Audio = audio
 	cfg.Domain = domain
 	cfg.MaxParallel = maxParallel
+	cfg.HlsTranscode = hlsTranscode
 	return cfg.Save()
 }
 
@@ -414,12 +415,13 @@ func (a *App) StartDownload(animeTitle, slug string, epNums []float64) error {
 				outPath := filepath.Join(cfg.DownloadDir, sanitizedTitle, sanitizedTitle+" "+epStr+".mp4")
 
 				a.dlManager.Submit(dl.Job{
-					ID:         jobID,
-					AnimeTitle: animeTitle,
-					EpNum:      epNum,
-					URL:        dlURL,
-					IsHLS:      isHLS,
-					OutputPath: outPath,
+					ID:           jobID,
+					AnimeTitle:   animeTitle,
+					EpNum:        epNum,
+					URL:          dlURL,
+					IsHLS:        isHLS,
+					OutputPath:   outPath,
+					HlsTranscode: cfg.HlsTranscode,
 				})
 			}()
 		}

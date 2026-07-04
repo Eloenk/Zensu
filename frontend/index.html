@@ -69,6 +69,7 @@
                             <h1>Downloads</h1>
                             <p>Track active episodes downloading to your system</p>
                         </div>
+                        <button class="btn-secondary btn-sm" id="btn-clear-downloads" style="height: fit-content;">Clear History</button>
                     </div>
                 </div>
 
@@ -150,6 +151,13 @@
                             <option value="glow">Cyberpunk Glow</option>
                             <option value="solid">Midnight Solid</option>
                         </select>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="setting-hls-transcode">
+                            <span>Transcode HLS Streams (Slower, fixes video freezing/skipping issues)</span>
+                        </label>
                     </div>
 
                     <div class="form-actions">

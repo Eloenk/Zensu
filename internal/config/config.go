@@ -10,14 +10,15 @@ import (
 )
 
 type Config struct {
-	UA          string `json:"ua"`
-	CF          string `json:"cf"`
-	Cookies     string `json:"cookies"`
-	DownloadDir string `json:"downloadDir"`
-	MaxParallel int    `json:"maxParallel"`
-	Quality     string `json:"quality"`
-	Audio       string `json:"audio"`
-	Domain      string `json:"domain"`
+	UA           string `json:"ua"`
+	CF           string `json:"cf"`
+	Cookies      string `json:"cookies"`
+	DownloadDir  string `json:"downloadDir"`
+	MaxParallel  int    `json:"maxParallel"`
+	Quality      string `json:"quality"`
+	Audio        string `json:"audio"`
+	Domain       string `json:"domain"`
+	HlsTranscode bool   `json:"hlsTranscode"`
 }
 
 var (
@@ -55,12 +56,13 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(cfgPath)
 	if err != nil {
 		cfg := Config{
-			UA:          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
-			Domain:      "https://animepahe.pw",
-			MaxParallel: 3,
-			Quality:     "1080",
-			Audio:       "jpn",
-			DownloadDir: defaultDownloadDir(),
+			UA:           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+			Domain:       "https://animepahe.pw",
+			MaxParallel:  3,
+			Quality:      "1080",
+			Audio:        "jpn",
+			DownloadDir:  defaultDownloadDir(),
+			HlsTranscode: false,
 		}
 		if err := cfg.Save(); err != nil {
 			return nil, err
