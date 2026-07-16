@@ -1,4 +1,4 @@
-package chrome
+package browser
 
 import (
 	"encoding/json"
@@ -60,6 +60,33 @@ type EvaluateResult struct {
 	} `json:"result"`
 }
 
+var Candidates = map[string]map[string][]string{
+	"chrome": {
+		"windows": {"Google/Chrome/Application/chrome.exe"},
+		"linux":   {"/usr/bin/google-chrome", "/usr/bin/google-chrome-stable"},
+	},
+	"brave": {
+		"windows": {"BraveSoftware/Brave-Browser/Application/brave.exe"},
+		"linux":   {"/usr/bin/brave-browser", "/usr/bin/brave"},
+	},
+	"edge": {
+		"windows": {"Microsoft/Edge/Application/msedge.exe"},
+		"linux":   {"/usr/bin/microsoft-edge", "/usr/bin/microsoft-edge-stable"},
+	},
+	"chromium": {
+		"windows": {},
+		"linux":   {"/usr/bin/chromium", "/usr/bin/chromium-browser", "/snap/bin/chromium"},
+	},
+	"vivaldi": {
+		"windows": {"Vivaldi/Application/vivaldi.exe"},
+		"linux":   {"/usr/bin/vivaldi", "/usr/bin/vivaldi-stable"},
+	},
+	"opera": {
+		"windows": {"Opera/launcher.exe"},
+		"linux":   {"/usr/bin/opera"},
+	},
+}
+
 func IsCDPReady(port int) bool {
 	client := http.Client{Timeout: 1 * time.Second}
 	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/json/version", port))
@@ -70,42 +97,74 @@ func IsCDPReady(port int) bool {
 	return resp.StatusCode == 200
 }
 
-func FindChromePath() (string, error) {
-	if path := os.Getenv("CHROME_PATH"); path != "" {
-		if _, err := os.Stat(path); err == nil {
-			return path, nil
+func resolveWindowsPaths(relPath string) []string {
+	var paths []string
+	programFiles := os.Getenv("ProgramFiles")
+	programFilesX86 := os.Getenv("ProgramFiles(x86)")
+	localAppData := os.Getenv("LocalAppData")
+
+	if programFiles != "" {
+		paths = append(paths, filepath.Join(programFiles, relPath))
+	}
+	if programFilesX86 != "" {
+		paths = append(paths, filepath.Join(programFilesX86, relPath))
+	}
+	if localAppData != "" {
+		paths = append(paths, filepath.Join(localAppData, relPath))
+		paths = append(paths, filepath.Join(localAppData, "Programs", relPath))
+	}
+	return paths
+}
+
+func FindBrowserPath(browserType string, customPath string) (string, error) {
+	if customPath != "" {
+		if _, err := os.Stat(customPath); err == nil {
+			return customPath, nil
 		}
+		return "", fmt.Errorf("custom browser path does not exist: %s", customPath)
+	}
+
+	if browserType == "" {
+		browserType = "auto"
+	}
+	browserType = strings.ToLower(browserType)
+
+	// Try default system browser first if type is "auto"
+	if browserType == "auto" {
+		if defaultPath, err := getDefaultBrowserPath(); err == nil && defaultPath != "" {
+			if _, err := os.Stat(defaultPath); err == nil {
+				// Don't use Safari as default since it lacks CDP support
+				if !strings.Contains(strings.ToLower(defaultPath), "safari") {
+					return defaultPath, nil
+				}
+			}
+		}
+		// Fallback to searching popular browsers in order
+		order := []string{"chrome", "brave", "edge", "chromium", "vivaldi", "opera"}
+		for _, b := range order {
+			if path, err := FindCandidatePath(b); err == nil && path != "" {
+				return path, nil
+			}
+		}
+		return "", fmt.Errorf("no supported browser found on system")
+	}
+
+	return FindCandidatePath(browserType)
+}
+
+func FindCandidatePath(browserType string) (string, error) {
+	bMap, ok := Candidates[browserType]
+	if !ok {
+		return "", fmt.Errorf("unsupported browser type: %s", browserType)
 	}
 
 	var candidates []string
 	if runtime.GOOS == "windows" {
-		programFiles := os.Getenv("ProgramFiles")
-		programFilesX86 := os.Getenv("ProgramFiles(x86)")
-		localAppData := os.Getenv("LocalAppData")
-
-		if programFiles != "" {
-			candidates = append(candidates, filepath.Join(programFiles, "Google", "Chrome", "Application", "chrome.exe"))
-		}
-		if programFilesX86 != "" {
-			candidates = append(candidates, filepath.Join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe"))
-		}
-		if localAppData != "" {
-			candidates = append(candidates, filepath.Join(localAppData, "Google", "Chrome", "Application", "chrome.exe"))
-		}
-	} else if runtime.GOOS == "darwin" {
-		candidates = []string{
-			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-			"/Applications/Chromium.app/Contents/MacOS/Chromium",
+		for _, rel := range bMap["windows"] {
+			candidates = append(candidates, resolveWindowsPaths(rel)...)
 		}
 	} else {
-		// Linux
-		candidates = []string{
-			"/usr/bin/google-chrome",
-			"/usr/bin/google-chrome-stable",
-			"/usr/bin/chromium",
-			"/usr/bin/chromium-browser",
-			"/snap/bin/chromium",
-		}
+		candidates = bMap["linux"]
 	}
 
 	for _, c := range candidates {
@@ -113,15 +172,52 @@ func FindChromePath() (string, error) {
 			return c, nil
 		}
 	}
-	return "", fmt.Errorf("chrome executable not found")
-}
 
-func launchChrome(chromePath string, port int, profileDir string, targetURL string) (*exec.Cmd, error) {
-	if err := os.MkdirAll(profileDir, 0700); err != nil {
-		return nil, err
+	// Try simple environment lookup
+	if browserType == "chrome" {
+		if path := os.Getenv("CHROME_PATH"); path != "" {
+			if _, err := os.Stat(path); err == nil {
+				return path, nil
+			}
+		}
 	}
 
-	args := []string{
+	// Try checking the system PATH directly
+	var binName string
+	switch browserType {
+	case "chrome":
+		binName = "google-chrome"
+		if runtime.GOOS == "windows" {
+			binName = "chrome.exe"
+		}
+	case "brave":
+		binName = "brave-browser"
+		if runtime.GOOS == "windows" {
+			binName = "brave.exe"
+		}
+	case "edge":
+		binName = "microsoft-edge"
+		if runtime.GOOS == "windows" {
+			binName = "msedge.exe"
+		}
+	case "chromium":
+		binName = "chromium"
+	case "vivaldi":
+		binName = "vivaldi"
+	case "opera":
+		binName = "opera"
+	}
+	if binName != "" {
+		if p, err := exec.LookPath(binName); err == nil {
+			return p, nil
+		}
+	}
+
+	return "", fmt.Errorf("%s executable not found", browserType)
+}
+
+func getLaunchArgs(browserPath string, port int, profileDir string, targetURL string) []string {
+	return []string{
 		fmt.Sprintf("--remote-debugging-port=%d", port),
 		"--remote-debugging-address=127.0.0.1",
 		fmt.Sprintf("--user-data-dir=%s", profileDir),
@@ -129,8 +225,15 @@ func launchChrome(chromePath string, port int, profileDir string, targetURL stri
 		"--no-default-browser-check",
 		targetURL,
 	}
+}
 
-	cmd := exec.Command(chromePath, args...)
+func launchBrowser(browserPath string, port int, profileDir string, targetURL string) (*exec.Cmd, error) {
+	if err := os.MkdirAll(profileDir, 0700); err != nil {
+		return nil, err
+	}
+
+	args := getLaunchArgs(browserPath, port, profileDir, targetURL)
+	cmd := exec.Command(browserPath, args...)
 	setSysProcAttr(cmd)
 
 	if err := cmd.Start(); err != nil {
@@ -263,7 +366,23 @@ func getUserAgent(conn *websocket.Conn) (string, error) {
 	return result.Result.Value, nil
 }
 
-func pollCookiesAndUA(wsURL string, domain string) (*Credentials, error) {
+func getPageTitle(conn *websocket.Conn) (string, error) {
+	params := map[string]any{
+		"expression": "document.title",
+	}
+	resultRaw, err := sendAndReceive(conn, "Runtime.evaluate", params, 3)
+	if err != nil {
+		return "", err
+	}
+
+	var result EvaluateResult
+	if err := json.Unmarshal(resultRaw, &result); err != nil {
+		return "", err
+	}
+	return result.Result.Value, nil
+}
+
+func pollCookiesAndUA(wsURL string, domain string, oldCookie string) (*Credentials, error) {
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("websocket dial failed: %w", err)
@@ -279,6 +398,17 @@ func pollCookiesAndUA(wsURL string, domain string) (*Credentials, error) {
 		case <-timeout:
 			return nil, fmt.Errorf("timeout waiting for Cloudflare clearance cookies (3 minutes)")
 		case <-ticker.C:
+			// 1. Verify that the challenge/verification page is not active by checking the document title
+			title, _ := getPageTitle(conn)
+			titleLower := strings.ToLower(title)
+			if strings.Contains(titleLower, "just a moment") ||
+				strings.Contains(titleLower, "cloudflare") ||
+				strings.Contains(titleLower, "attention required") ||
+				title == "" {
+				continue // Keep waiting
+			}
+
+			// 2. Fetch the clearance cookie
 			cookies, err := getCookies(conn, domain)
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch cookies via cdp: %w", err)
@@ -292,7 +422,12 @@ func pollCookiesAndUA(wsURL string, domain string) (*Credentials, error) {
 				}
 			}
 
+			// 3. Ensure the cookie is found and has been updated (if oldCookie was provided)
 			if cfClearance != "" {
+				if oldCookie != "" && cfClearance == oldCookie {
+					continue // Still the old cookie, wait for refresh
+				}
+
 				ua, err := getUserAgent(conn)
 				if err != nil {
 					return nil, fmt.Errorf("failed to fetch user agent via cdp: %w", err)
@@ -320,8 +455,8 @@ func cleanProfileDir(dir string) {
 	}
 }
 
-func FetchCredentials(domain string) (*Credentials, error) {
-	port := 9322 // Use 9322 to avoid conflicts with standard 9222 ports
+func FetchCredentials(domain string, browserType string, customPath string, oldCookie string) (*Credentials, error) {
+	port := 9322
 	spawned := false
 	var cmd *exec.Cmd
 	var profileDir string
@@ -331,20 +466,20 @@ func FetchCredentials(domain string) (*Credentials, error) {
 	}
 
 	if !IsCDPReady(port) {
-		chromePath, err := FindChromePath()
+		browserPath, err := FindBrowserPath(browserType, customPath)
 		if err != nil {
-			return nil, fmt.Errorf("could not find chrome executable: %w", err)
+			return nil, fmt.Errorf("could not find compatible browser executable: %w", err)
 		}
 
 		userConfigDir, err := os.UserConfigDir()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get user config dir: %w", err)
 		}
-		profileDir = filepath.Join(userConfigDir, "zensu", "chrome-profile-isolated")
+		profileDir = filepath.Join(userConfigDir, "zensu", "browser-profile-isolated")
 
-		cmd, err = launchChrome(chromePath, port, profileDir, domain)
+		cmd, err = launchBrowser(browserPath, port, profileDir, domain)
 		if err != nil {
-			return nil, fmt.Errorf("failed to launch chrome: %w", err)
+			return nil, fmt.Errorf("failed to launch browser: %w", err)
 		}
 		spawned = true
 
@@ -362,7 +497,7 @@ func FetchCredentials(domain string) (*Credentials, error) {
 				_ = cmd.Wait()
 			}
 			cleanProfileDir(profileDir)
-			return nil, fmt.Errorf("chrome started but CDP did not become active on port %d within 15 seconds", port)
+			return nil, fmt.Errorf("browser started but CDP did not become active on port %d within 15 seconds", port)
 		}
 	}
 
@@ -376,7 +511,7 @@ func FetchCredentials(domain string) (*Credentials, error) {
 		return nil, err
 	}
 
-	credentials, err := pollCookiesAndUA(target.WebSocketDebuggerURL, domain)
+	credentials, err := pollCookiesAndUA(target.WebSocketDebuggerURL, domain, oldCookie)
 	if err != nil {
 		if spawned && cmd != nil && cmd.Process != nil {
 			_ = cmd.Process.Kill()

@@ -8,9 +8,11 @@ export function CancelAnimeDownloads(arg1:string):Promise<void>;
 
 export function ClearProgress():Promise<void>;
 
-export function FetchCredentialsFromChrome():Promise<Record<string, string>>;
+export function FetchCredentialsFromBrowser():Promise<Record<string, string>>;
 
 export function GetConfig():Promise<config.Config>;
+
+export function GetDetectedBrowsers():Promise<Array<Record<string, string>>>;
 
 export function GetEpisodes(arg1:string,arg2:string):Promise<Array<main.EpisodeInfo>>;
 
@@ -22,7 +24,7 @@ export function IsOnline():Promise<boolean>;
 
 export function RetryFailed(arg1:string):Promise<void>;
 
-export function SaveConfig(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:number,arg8:boolean):Promise<void>;
+export function SaveConfig(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string,arg8:string,arg9:number,arg10:boolean):Promise<void>;
 
 export function SearchAnime(arg1:string):Promise<Array<main.AnimeResult>>;
 

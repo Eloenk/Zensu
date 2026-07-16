@@ -12,7 +12,8 @@ import {
     IsOnline,
     RetryFailed,
     CancelAnimeDownloads,
-    FetchCredentialsFromChrome
+    FetchCredentialsFromBrowser,
+    GetDetectedBrowsers
 } from '../wailsjs/go/main/App';
 
 function applyTheme(theme) {
@@ -64,6 +65,8 @@ const settingsDir = document.getElementById('setting-dir');
 const settingsQuality = document.getElementById('setting-quality');
 const settingsAudio = document.getElementById('setting-audio');
 const settingsParallel = document.getElementById('setting-parallel');
+const settingsBrowser = document.getElementById('setting-browser');
+const settingsBrowserPath = document.getElementById('setting-browser-path');
 const settingsTheme = document.getElementById('setting-theme');
 const settingsHlsTranscode = document.getElementById('setting-hls-transcode');
 const saveSettingsBtn = document.getElementById('save-settings-btn');
@@ -111,6 +114,32 @@ async function loadSettings() {
         settingsDomain.value = cfg.domain || 'https://animepahe.pw';
         settingsUa.value = cfg.ua || '';
         settingsCf.value = cfg.cf || '';
+        // Dynamically load only detected browsers
+        try {
+            const detected = await GetDetectedBrowsers();
+            settingsBrowser.innerHTML = '';
+            let hasSaved = false;
+            detected.forEach(b => {
+                if (b.id === cfg.browser) {
+                    hasSaved = true;
+                }
+                const opt = document.createElement('option');
+                opt.value = b.id;
+                opt.textContent = b.name;
+                settingsBrowser.appendChild(opt);
+            });
+            if (!hasSaved && cfg.browser) {
+                const opt = document.createElement('option');
+                opt.value = cfg.browser;
+                opt.textContent = cfg.browser.charAt(0).toUpperCase() + cfg.browser.slice(1) + " (Not Detected)";
+                settingsBrowser.appendChild(opt);
+            }
+        } catch (err) {
+            console.error('Failed to get detected browsers:', err);
+        }
+
+        settingsBrowser.value = cfg.browser || 'auto';
+        settingsBrowserPath.value = cfg.browserPath || '';
         settingsDir.value = cfg.downloadDir || '';
         settingsQuality.value = cfg.quality || '1080';
         settingsAudio.value = cfg.audio || 'jpn';
@@ -136,9 +165,9 @@ btnBrowseDir.addEventListener('click', async () => {
 btnFetchCf.addEventListener('click', async () => {
     btnFetchCf.disabled = true;
     const originalText = btnFetchCf.textContent;
-    btnFetchCf.textContent = 'Opening Chrome...';
+    btnFetchCf.textContent = 'Opening Browser...';
     try {
-        const result = await FetchCredentialsFromChrome();
+        const result = await FetchCredentialsFromBrowser();
         if (result && result.ua && result.cf) {
             settingsUa.value = result.ua;
             settingsCf.value = result.cf;
@@ -175,6 +204,8 @@ settingsForm.addEventListener('submit', async (e) => {
             settingsQuality.value,
             settingsAudio.value,
             settingsDomain.value.trim(),
+            settingsBrowser.value,
+            settingsBrowserPath.value.trim(),
             parseInt(settingsParallel.value, 10),
             settingsHlsTranscode.checked
         );

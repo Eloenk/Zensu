@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"zensu/internal/api"
-	"zensu/internal/chrome"
+	"zensu/internal/browser"
 	"zensu/internal/config"
 	"zensu/internal/dl"
 	"zensu/internal/kwik"
@@ -74,10 +74,10 @@ func (a *App) autoCheckAndResolveCredentials() {
 	}
 
 	if needsSolve {
-		logger.Infof("APP_STARTUP_RESOLVE", "Clearance credentials missing or invalid. Launching Chrome to automatically resolve...")
-		credentials, err := chrome.FetchCredentials(cfg.Domain)
+		logger.Infof("APP_STARTUP_RESOLVE", "Clearance credentials missing or invalid. Launching Browser to automatically resolve...")
+		credentials, err := browser.FetchCredentials(cfg.Domain, cfg.Browser, cfg.BrowserPath, cfg.CF)
 		if err != nil {
-			logger.Errorf("APP_STARTUP_CHROME_ERR", "Failed to automatically resolve credentials via Chrome: %v", err)
+			logger.Errorf("APP_STARTUP_BROWSER_ERR", "Failed to automatically resolve credentials via Browser: %v", err)
 			return
 		}
 
@@ -217,29 +217,59 @@ func (a *App) GetConfig() (*config.Config, error) {
 	return config.Load()
 }
 
-func (a *App) FetchCredentialsFromChrome() (map[string]string, error) {
-	logger.Infof("APP_FETCH_CREDENTIALS", "Triggering Chrome credentials solver...")
+func (a *App) FetchCredentialsFromBrowser() (map[string]string, error) {
+	logger.Infof("APP_FETCH_CREDENTIALS", "Triggering browser credentials solver...")
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Errorf("APP_CONFIG_ERR", "Failed to load config: %v", err)
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	credentials, err := chrome.FetchCredentials(cfg.Domain)
+	credentials, err := browser.FetchCredentials(cfg.Domain, cfg.Browser, cfg.BrowserPath, cfg.CF)
 	if err != nil {
-		logger.Errorf("APP_CHROME_CDP_ERR", "Failed to fetch credentials via Chrome: %v", err)
-		return nil, fmt.Errorf("failed to fetch credentials via Chrome: %w", err)
+		logger.Errorf("APP_BROWSER_CDP_ERR", "Failed to fetch credentials via Browser: %v", err)
+		return nil, fmt.Errorf("failed to fetch credentials via Browser: %w", err)
 	}
 
-	logger.Infof("APP_FETCH_CREDENTIALS_OK", "Successfully fetched credentials from Chrome: UA length=%d, CF length=%d", len(credentials.UA), len(credentials.CF))
+	logger.Infof("APP_FETCH_CREDENTIALS_OK", "Successfully fetched credentials from Browser: UA length=%d, CF length=%d", len(credentials.UA), len(credentials.CF))
 	return map[string]string{
 		"ua": credentials.UA,
 		"cf": credentials.CF,
 	}, nil
 }
 
-func (a *App) SaveConfig(ua, cf, downloadDir, quality, audio, domain string, maxParallel int, hlsTranscode bool) error {
-	logger.Infof("APP_CONFIG_SAVE", "Saving configuration: domain=%s quality=%s audio=%s maxParallel=%d downloadDir=%s hlsTranscode=%t", domain, quality, audio, maxParallel, downloadDir, hlsTranscode)
+func (a *App) GetDetectedBrowsers() ([]map[string]string, error) {
+	supported := []struct {
+		ID   string
+		Name string
+	}{
+		{"chrome", "Google Chrome"},
+		{"brave", "Brave"},
+		{"edge", "Microsoft Edge"},
+		{"chromium", "Chromium"},
+		{"vivaldi", "Vivaldi"},
+		{"opera", "Opera"},
+	}
+
+	detected := []map[string]string{
+		{"id": "auto", "name": "Auto (Default)"},
+	}
+
+	for _, b := range supported {
+		path, err := browser.FindCandidatePath(b.ID)
+		if err == nil && path != "" {
+			detected = append(detected, map[string]string{
+				"id":   b.ID,
+				"name": b.Name,
+			})
+		}
+	}
+
+	return detected, nil
+}
+
+func (a *App) SaveConfig(ua, cf, downloadDir, quality, audio, domain, browserName, browserPath string, maxParallel int, hlsTranscode bool) error {
+	logger.Infof("APP_CONFIG_SAVE", "Saving configuration: domain=%s quality=%s audio=%s maxParallel=%d downloadDir=%s browser=%s browserPath=%s hlsTranscode=%t", domain, quality, audio, maxParallel, downloadDir, browserName, browserPath, hlsTranscode)
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -250,6 +280,8 @@ func (a *App) SaveConfig(ua, cf, downloadDir, quality, audio, domain string, max
 	cfg.Quality = quality
 	cfg.Audio = audio
 	cfg.Domain = domain
+	cfg.Browser = browserName
+	cfg.BrowserPath = browserPath
 	cfg.MaxParallel = maxParallel
 	cfg.HlsTranscode = hlsTranscode
 	return cfg.Save()
@@ -462,7 +494,6 @@ func (a *App) IsOnline() bool {
 	if err != nil || u.Host == "" {
 		return false
 	}
-	// Try a quick DNS lookup for the domain host to see if it resolves
 	_, err = net.LookupHost(u.Host)
 	return err == nil
 }
@@ -492,7 +523,6 @@ func (a *App) RetryFailed(animeTitle string) error {
 		return fmt.Errorf("no failed or active downloads to retry for this anime")
 	}
 
-	// Submit them again
 	return a.StartDownload(animeTitle, slug, epNums)
 }
 

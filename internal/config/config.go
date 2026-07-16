@@ -19,6 +19,8 @@ type Config struct {
 	Audio        string `json:"audio"`
 	Domain       string `json:"domain"`
 	HlsTranscode bool   `json:"hlsTranscode"`
+	Browser      string `json:"browser"`
+	BrowserPath  string `json:"browserPath"`
 }
 
 var (
@@ -63,6 +65,8 @@ func Load() (*Config, error) {
 			Audio:        "jpn",
 			DownloadDir:  defaultDownloadDir(),
 			HlsTranscode: false,
+			Browser:      "auto",
+			BrowserPath:  "",
 		}
 		if err := cfg.Save(); err != nil {
 			return nil, err
@@ -77,6 +81,10 @@ func Load() (*Config, error) {
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
+	}
+
+	if cfg.Browser == "" {
+		cfg.Browser = "auto"
 	}
 
 	if cfg.Cookies == "" && cfg.CF != "" {

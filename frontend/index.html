@@ -97,13 +97,31 @@
                         <small>Must match the browser User-Agent used to get clearance cookies</small>
                     </div>
 
+                    <div class="settings-row">
+                        <div class="settings-group half">
+                            <label for="setting-browser">Verification Browser</label>
+                            <select id="setting-browser">
+                                <option value="auto">Auto (Default)</option>
+                                <option value="chrome">Google Chrome</option>
+                                <option value="brave">Brave</option>
+                                <option value="edge">Microsoft Edge</option>
+                                <option value="chromium">Chromium</option>
+                                <option value="vivaldi">Vivaldi</option>
+                                <option value="opera">Opera</option>
+                            </select>
+                        </div>
+                        <div class="settings-group half">
+                            <label for="setting-browser-path">Custom Browser Path (Optional)</label>
+                            <input type="text" id="setting-browser-path" placeholder="Override executable path...">
+                        </div>
+                    </div>
+
                     <div class="settings-group">
-                        <label for="setting-cf">Cloudflare Clearance Cookie (cf_clearance)</label>
+                        <label for="setting-cf">Cookie</label>
                         <div class="directory-input-row">
                             <input type="text" id="setting-cf" placeholder="e.g. 1a2b3c4d5e...">
-                            <button type="button" class="btn-primary" id="btn-fetch-cf" style="white-space: nowrap;">Autofill via Chrome</button>
+                            <button type="button" class="btn-primary" id="btn-fetch-cf" style="white-space: nowrap;">Autofill Cookie</button>
                         </div>
-                        <small>Clearance cookie value to bypass Cloudflare protection layers (or click Autofill to solve/fetch from Chrome)</small>
                     </div>
 
                     <div class="settings-group">

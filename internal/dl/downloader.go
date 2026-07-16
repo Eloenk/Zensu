@@ -738,8 +738,8 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 
 	logger.Infof("DL_HLS_START", "Starting native HLS download of %d segments", len(urls))
 
-	// 2. Download segments locally
 	var totalBytesDownloaded int64
+	var completedSegmentsBytes int64
 	startTime := time.Now()
 	lastPrintTime := time.Now()
 
@@ -749,89 +749,99 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 			return ctx.Err()
 		}
 
-		var resp *fhttp.Response
-		var reqErr error
+		segmentPath := filepath.Join(tempDir, fmt.Sprintf("segment_%d.ts", idx))
+		var segmentSuccess bool
+		var lastSegmentErr error
+
 		for retry := 0; retry < 5; retry++ {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
+
 			req, err := fhttp.NewRequestWithContext(ctx, "GET", segmentURL, nil)
 			if err != nil {
-				reqErr = err
+				lastSegmentErr = err
 				break
 			}
 			req.Header.Set("Referer", "https://kwik.cx/")
 			req.Header.Set("User-Agent", ua)
 
-			resp, err = m.client.Do(req)
-			if err == nil && resp.StatusCode == fhttp.StatusOK {
-				reqErr = nil
+			resp, err := m.client.Do(req)
+			if err != nil {
+				lastSegmentErr = err
+				time.Sleep(1 * time.Second)
+				continue
+			}
+
+			if resp.StatusCode != fhttp.StatusOK {
+				lastSegmentErr = fmt.Errorf("status %d", resp.StatusCode)
+				resp.Body.Close()
+				time.Sleep(1 * time.Second)
+				continue
+			}
+
+			segmentFile, err := os.Create(segmentPath)
+			if err != nil {
+				resp.Body.Close()
+				lastSegmentErr = err
 				break
 			}
-			if resp != nil {
-				resp.Body.Close()
-			}
-			if err != nil {
-				reqErr = err
-			} else if resp != nil {
-				reqErr = fmt.Errorf("status %d", resp.StatusCode)
-			} else {
-				reqErr = fmt.Errorf("unknown connection error")
-			}
-			time.Sleep(1 * time.Second)
-		}
-		if reqErr != nil {
-			logger.Errorf("DL_HLS_SEG_ERR", "Failed to download segment %d: %v", idx, reqErr)
-			return fmt.Errorf("failed to download segment %d: %w", idx, reqErr)
-		}
 
-		segmentPath := filepath.Join(tempDir, fmt.Sprintf("segment_%d.ts", idx))
-		segmentFile, err := os.Create(segmentPath)
-		if err != nil {
-			resp.Body.Close()
-			return err
-		}
+			var currentSegmentBytes int64
+			spr := &segmentProgressReader{
+				r: resp.Body,
+				onProgress: func(n int) {
+					atomic.AddInt64(&currentSegmentBytes, int64(n))
+					totalProgressBytes := atomic.LoadInt64(&completedSegmentsBytes) + atomic.LoadInt64(&currentSegmentBytes)
 
-		spr := &segmentProgressReader{
-			r: resp.Body,
-			onProgress: func(n int) {
-				atomic.AddInt64(&totalBytesDownloaded, int64(n))
-
-				now := time.Now()
-				if now.Sub(lastPrintTime) > 250*time.Millisecond {
-					lastPrintTime = now
-					elapsed := time.Since(startTime).Seconds()
-					speed := ""
-					eta := ""
-					if elapsed > 0 {
-						bps := float64(atomic.LoadInt64(&totalBytesDownloaded)) / elapsed
-						speed = humanBytes(int64(bps)) + "/s"
-						if idx > 0 {
-							remainingSec := float64(len(urls)-idx) * elapsed / float64(idx)
-							if remainingSec < 60 {
-								eta = fmt.Sprintf("%.0fs", remainingSec)
-							} else {
-								eta = fmt.Sprintf("%.0fm %.0fs", remainingSec/60, remainingSec-float64(int(remainingSec/60)*60))
+					now := time.Now()
+					if now.Sub(lastPrintTime) > 250*time.Millisecond {
+						lastPrintTime = now
+						elapsed := time.Since(startTime).Seconds()
+						speed := ""
+						eta := ""
+						if elapsed > 0 {
+							bps := float64(totalProgressBytes) / elapsed
+							speed = humanBytes(int64(bps)) + "/s"
+							if idx > 0 {
+								remainingSec := float64(len(urls)-idx) * elapsed / float64(idx)
+								if remainingSec < 60 {
+									eta = fmt.Sprintf("%.0fs", remainingSec)
+								} else {
+									eta = fmt.Sprintf("%.0fm %.0fs", remainingSec/60, remainingSec-float64(int(remainingSec/60)*60))
+								}
 							}
 						}
-					}
 
-					pct := (float64(idx) / float64(len(urls))) * 100.0
-					if pct > 100 {
-						pct = 100
+						pct := (float64(idx) / float64(len(urls))) * 100.0
+						if pct > 100 {
+							pct = 100
+						}
+						m.UpdateProgress(job.ID, job.AnimeTitle, job.EpNum, "downloading", pct, speed, eta, "")
+						printProgress(job.EpNum, totalProgressBytes, 0, false)
 					}
-					m.UpdateProgress(job.ID, job.AnimeTitle, job.EpNum, "downloading", pct, speed, eta, "")
-					printProgress(job.EpNum, atomic.LoadInt64(&totalBytesDownloaded), 0, false)
-				}
-			},
+				},
+			}
+
+			_, copyErr := io.Copy(segmentFile, spr)
+			resp.Body.Close()
+			segmentFile.Close()
+
+			if copyErr != nil {
+				lastSegmentErr = copyErr
+				time.Sleep(1 * time.Second)
+				continue
+			}
+
+			atomic.AddInt64(&completedSegmentsBytes, currentSegmentBytes)
+			atomic.StoreInt64(&totalBytesDownloaded, atomic.LoadInt64(&completedSegmentsBytes))
+			segmentSuccess = true
+			break
 		}
 
-		_, err = io.Copy(segmentFile, spr)
-		resp.Body.Close()
-		segmentFile.Close()
-		if err != nil {
-			logger.Errorf("DL_HLS_COPY_ERR", "Failed copying segment %d data: %v", idx, err)
-			return fmt.Errorf("failed copying segment %d data: %w", idx, err)
+		if !segmentSuccess {
+			logger.Errorf("DL_HLS_SEG_ERR", "Failed to download segment %d: %v", idx, lastSegmentErr)
+			return fmt.Errorf("failed to download segment %d: %w", idx, lastSegmentErr)
 		}
 	}
 

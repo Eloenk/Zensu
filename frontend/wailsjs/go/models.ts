@@ -10,6 +10,8 @@ export namespace config {
 	    audio: string;
 	    domain: string;
 	    hlsTranscode: boolean;
+	    browser: string;
+	    browserPath: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -26,6 +28,8 @@ export namespace config {
 	        this.audio = source["audio"];
 	        this.domain = source["domain"];
 	        this.hlsTranscode = source["hlsTranscode"];
+	        this.browser = source["browser"];
+	        this.browserPath = source["browserPath"];
 	    }
 	}
 

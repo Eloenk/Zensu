@@ -10,12 +10,16 @@ export function ClearProgress() {
   return window['go']['main']['App']['ClearProgress']();
 }
 
-export function FetchCredentialsFromChrome() {
-  return window['go']['main']['App']['FetchCredentialsFromChrome']();
+export function FetchCredentialsFromBrowser() {
+  return window['go']['main']['App']['FetchCredentialsFromBrowser']();
 }
 
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
+}
+
+export function GetDetectedBrowsers() {
+  return window['go']['main']['App']['GetDetectedBrowsers']();
 }
 
 export function GetEpisodes(arg1, arg2) {
@@ -38,8 +42,8 @@ export function RetryFailed(arg1) {
   return window['go']['main']['App']['RetryFailed'](arg1);
 }
 
-export function SaveConfig(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
-  return window['go']['main']['App']['SaveConfig'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+export function SaveConfig(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
+  return window['go']['main']['App']['SaveConfig'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
 }
 
 export function SearchAnime(arg1) {

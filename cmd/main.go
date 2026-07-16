@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"zensu/internal/api"
-	"zensu/internal/chrome"
+	"zensu/internal/browser"
 	"zensu/internal/config"
 	"zensu/internal/dl"
 	"zensu/internal/kwik"
@@ -347,11 +347,11 @@ func fatalf(format string, args ...any) {
 }
 
 func refreshCredentials(cfg *config.Config) error {
-	fmt.Println("  \033[33m[INFO]\033[0m Launching Chrome to solve Cloudflare challenge...")
+	fmt.Println("  \033[33m[INFO]\033[0m Launching Browser to solve Cloudflare challenge...")
 	fmt.Println("         (Please click/solve any verification challenge if prompted)")
-	credentials, err := chrome.FetchCredentials(cfg.Domain)
+	credentials, err := browser.FetchCredentials(cfg.Domain, cfg.Browser, cfg.BrowserPath, cfg.CF)
 	if err != nil {
-		logger.Errorf("CLI_AUTO_RESOLVE_FAIL", "Chrome auto-resolve failed: %v", err)
+		logger.Errorf("CLI_AUTO_RESOLVE_FAIL", "Browser auto-resolve failed: %v", err)
 		return promptManualCredentials(cfg)
 	}
 	cfg.UA = credentials.UA
