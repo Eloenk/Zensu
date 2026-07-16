@@ -2,6 +2,7 @@ package dl
 
 import (
 	"archive/zip"
+	"context"
 	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
@@ -14,8 +15,11 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
+
+	"zensu/internal/logger"
 )
 
 const (
@@ -35,6 +39,18 @@ var (
 	ffmpegOnce sync.Once
 	ffmpegErr  error
 )
+
+func logInfo(format string, a ...interface{}) {
+	msg := fmt.Sprintf(format, a...)
+	fmt.Println("  [INFO] " + msg)
+	logger.Infof("FFMPEG_SETUP", "%s", msg)
+}
+
+func logError(format string, a ...interface{}) {
+	msg := fmt.Sprintf(format, a...)
+	fmt.Println("  [ERROR] " + msg)
+	logger.Errorf("FFMPEG_SETUP", "%s", msg)
+}
 
 func EnsureFFmpegOnce() error {
 	ffmpegOnce.Do(func() {
@@ -65,6 +81,34 @@ func fetchRemoteChecksum(urlStr string) (string, error) {
 	}
 
 	return strings.ToLower(fields[0]), nil
+}
+
+func fetchBtbNChecksum() (string, error) {
+	resp, err := http.Get("https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/checksums.sha256")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	lines := strings.Split(string(bodyBytes), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "ffmpeg-master-latest-win64-gpl.zip") {
+			fields := strings.Fields(line)
+			if len(fields) > 0 {
+				return strings.ToLower(fields[0]), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("checksum for BtbN build not found in checksums.sha256")
 }
 
 func verifyFileHash(filePath, expectedHash string, useSHA256 bool) error {
@@ -118,31 +162,66 @@ func EnsureFFmpeg() error {
 		return nil
 	}
 
-	fmt.Println("  [INFO] FFmpeg not found. Downloading static build...")
+	logInfo("FFmpeg not found. Downloading static build...")
 
 	if runtime.GOOS == "windows" {
 		tempZip := filepath.Join(binDir, "ffmpeg-temp.zip")
+		
+		// Attempt 1: Gyan.dev
+		logInfo("Attempting to download FFmpeg from Gyan.dev...")
+		downloadSuccess := false
+		
 		checksumURL := ffmpegWinURL + ".sha256"
-		fmt.Println("  [INFO] Fetching FFmpeg SHA256 checksum...")
+		logInfo("Fetching FFmpeg SHA256 checksum from Gyan.dev...")
 		expectedHash, err := fetchRemoteChecksum(checksumURL)
-		if err != nil {
-			return fmt.Errorf("failed to fetch FFmpeg checksum: %w", err)
+		if err == nil {
+			if err := downloadFFmpeg(ffmpegWinURL, tempZip); err == nil {
+				logInfo("Verifying download integrity...")
+				if err := verifyFileHash(tempZip, expectedHash, true); err == nil {
+					downloadSuccess = true
+				} else {
+					logError("Gyan.dev checksum verification failed: %v", err)
+				}
+			} else {
+				logError("Failed to download FFmpeg from Gyan.dev: %v", err)
+			}
+		} else {
+			logError("Failed to fetch Gyan.dev checksum: %v", err)
 		}
-
-		if err := downloadFFmpeg(ffmpegWinURL, tempZip); err != nil {
+		
+		// Attempt 2: BtbN (Fallback)
+		if !downloadSuccess {
 			os.Remove(tempZip)
-			return fmt.Errorf("failed to download FFmpeg: %w", err)
+			logInfo("Falling back to download FFmpeg from BtbN (GitHub)...")
+			
+			btbnURL := "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+			logInfo("Fetching FFmpeg SHA256 checksum from BtbN...")
+			expectedHash, err = fetchBtbNChecksum()
+			if err == nil {
+				if err := downloadFFmpeg(btbnURL, tempZip); err == nil {
+					logInfo("Verifying download integrity...")
+					if err := verifyFileHash(tempZip, expectedHash, true); err == nil {
+						downloadSuccess = true
+					} else {
+						logError("BtbN checksum verification failed: %v", err)
+					}
+				} else {
+					logError("Failed to download FFmpeg from BtbN: %v", err)
+				}
+			} else {
+				logError("Failed to fetch BtbN checksum: %v", err)
+			}
 		}
-
-		fmt.Println("\n  [INFO] Verifying download integrity...")
-		if err := verifyFileHash(tempZip, expectedHash, true); err != nil {
+		
+		if !downloadSuccess {
 			os.Remove(tempZip)
-			return fmt.Errorf("FFmpeg verification failed: %w", err)
+			return fmt.Errorf("failed to download and verify FFmpeg from both Gyan.dev and BtbN")
 		}
 
-		fmt.Println("  [INFO] Extracting FFmpeg...")
+		logInfo("Extracting FFmpeg...")
 		if err := extractFFmpegWin(tempZip, localPath); err != nil {
 			os.Remove(tempZip)
+			logError("Failed to extract FFmpeg: %v", err)
 			return fmt.Errorf("failed to extract FFmpeg: %w", err)
 		}
 		os.Remove(tempZip)
@@ -155,27 +234,31 @@ func EnsureFFmpeg() error {
 		}
 
 		checksumURL := url + ".md5"
-		fmt.Println("  [INFO] Fetching FFmpeg MD5 checksum...")
+		logInfo("Fetching FFmpeg MD5 checksum...")
 		expectedHash, err := fetchRemoteChecksum(checksumURL)
 		if err != nil {
+			logError("Failed to fetch FFmpeg checksum: %v", err)
 			return fmt.Errorf("failed to fetch FFmpeg checksum: %w", err)
 		}
 
 		tempTar := filepath.Join(binDir, "ffmpeg-temp.tar.xz")
 		if err := downloadFFmpeg(url, tempTar); err != nil {
 			os.Remove(tempTar)
+			logError("Failed to download FFmpeg: %v", err)
 			return fmt.Errorf("failed to download FFmpeg: %w", err)
 		}
 
-		fmt.Println("\n  [INFO] Verifying download integrity...")
+		logInfo("Verifying download integrity...")
 		if err := verifyFileHash(tempTar, expectedHash, false); err != nil {
 			os.Remove(tempTar)
+			logError("FFmpeg verification failed: %v", err)
 			return fmt.Errorf("FFmpeg verification failed: %w", err)
 		}
 
-		fmt.Println("  [INFO] Extracting FFmpeg...")
+		logInfo("Extracting FFmpeg...")
 		if err := extractFFmpegLinux(tempTar, binDir, localPath); err != nil {
 			os.Remove(tempTar)
+			logError("Failed to extract FFmpeg: %v", err)
 			return fmt.Errorf("failed to extract FFmpeg: %w", err)
 		}
 		os.Remove(tempTar)
@@ -183,12 +266,38 @@ func EnsureFFmpeg() error {
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
 
-	fmt.Println("  [INFO] FFmpeg installed successfully.")
+	logInfo("FFmpeg installed successfully.")
 	return nil
 }
 
 func downloadFFmpeg(urlStr, dest string) error {
-	resp, err := http.Get(urlStr)
+	logInfo("Downloading FFmpeg from %s", urlStr)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var lastProgressTime int64 = time.Now().UnixNano()
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			if ctx.Err() != nil {
+				return
+			}
+			last := atomic.LoadInt64(&lastProgressTime)
+			if time.Since(time.Unix(0, last)) > 30*time.Second {
+				logError("FFmpeg download timed out (no progress for 30s)")
+				cancel()
+				return
+			}
+		}
+	}()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -216,6 +325,7 @@ func downloadFFmpeg(urlStr, dest string) error {
 				return wErr
 			}
 			downloaded += int64(n)
+			atomic.StoreInt64(&lastProgressTime, time.Now().UnixNano())
 
 			if time.Since(lastPrint) > 100*time.Millisecond || downloaded == size {
 				lastPrint = time.Now()
@@ -235,6 +345,8 @@ func downloadFFmpeg(urlStr, dest string) error {
 			return err
 		}
 	}
+	fmt.Println() // Print newline after progress bar
+	logInfo("FFmpeg download finished successfully")
 	return nil
 }
 

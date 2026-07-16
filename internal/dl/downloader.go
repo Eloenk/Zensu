@@ -130,7 +130,6 @@ func (m *Manager) seedCookies(rawURL string) {
 	m.client.SetCookies(u, fCookies)
 }
 
-
 func (m *Manager) StartWorkers() {
 	for i := 0; i < m.maxParallel; i++ {
 		go func() {
