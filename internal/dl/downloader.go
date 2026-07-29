@@ -890,13 +890,22 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 	}
 
 	var ffmpegArgs []string
-	ffmpegArgs = append(ffmpegArgs, "-allowed_extensions", "ALL", "-protocol_whitelist", "file,crypto", "-i", "playlist.m3u8")
+	ffmpegArgs = append(ffmpegArgs,
+		"-allowed_extensions", "ALL",
+		"-protocol_whitelist", "file,crypto",
+		"-fflags", "+genpts",
+		"-i", "playlist.m3u8",
+	)
 	if job.HlsTranscode {
-		ffmpegArgs = append(ffmpegArgs, "-c:v", "libx264", "-c:a", "aac", "-pix_fmt", "yuv420p")
+		ffmpegArgs = append(ffmpegArgs, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac")
 	} else {
-		ffmpegArgs = append(ffmpegArgs, "-c", "copy")
+		ffmpegArgs = append(ffmpegArgs, "-c:v", "copy", "-c:a", "aac")
 	}
-	ffmpegArgs = append(ffmpegArgs, "-y", job.OutputPath)
+	ffmpegArgs = append(ffmpegArgs,
+		"-bsf:a", "aac_adtstoasc",
+		"-max_muxing_queue_size", "2048",
+		"-y", job.OutputPath,
+	)
 
 	cmd := exec.CommandContext(ctx, ffmpegPath, ffmpegArgs...)
 	cmd.Dir = tempDir

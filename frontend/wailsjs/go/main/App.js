@@ -50,6 +50,10 @@ export function SearchAnime(arg1) {
   return window['go']['main']['App']['SearchAnime'](arg1);
 }
 
+export function SelectBrowserFile() {
+  return window['go']['main']['App']['SelectBrowserFile']();
+}
+
 export function SelectDirectory() {
   return window['go']['main']['App']['SelectDirectory']();
 }

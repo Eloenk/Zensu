@@ -71,6 +71,7 @@ const settingsTheme = document.getElementById('setting-theme');
 const settingsHlsTranscode = document.getElementById('setting-hls-transcode');
 const saveSettingsBtn = document.getElementById('save-settings-btn');
 const btnBrowseDir = document.getElementById('btn-browse-dir');
+const btnBrowseBrowserPath = document.getElementById('btn-browse-browser-path');
 const btnFetchCf = document.getElementById('btn-fetch-cf');
 const btnClearDownloads = document.getElementById('btn-clear-downloads');
 const saveStatus = document.getElementById('save-status');
@@ -144,7 +145,7 @@ async function loadSettings() {
         settingsQuality.value = cfg.quality || '1080';
         settingsAudio.value = cfg.audio || 'jpn';
         settingsParallel.value = String(cfg.maxParallel || 3);
-        settingsHlsTranscode.checked = cfg.hlsTranscode || false;
+        if (settingsHlsTranscode) settingsHlsTranscode.checked = cfg.hlsTranscode || false;
         settingsTheme.value = localStorage.getItem('theme') || 'glow';
     } catch (err) {
         console.error('Failed to load settings:', err);
@@ -159,6 +160,17 @@ btnBrowseDir.addEventListener('click', async () => {
         }
     } catch (err) {
         console.error('Directory selection failed:', err);
+    }
+});
+
+btnBrowseBrowserPath.addEventListener('click', async () => {
+    try {
+        const path = await SelectBrowserFile();
+        if (path) {
+            settingsBrowserPath.value = path;
+        }
+    } catch (err) {
+        console.error('Browser file selection failed:', err);
     }
 });
 
@@ -207,7 +219,7 @@ settingsForm.addEventListener('submit', async (e) => {
             settingsBrowser.value,
             settingsBrowserPath.value.trim(),
             parseInt(settingsParallel.value, 10),
-            settingsHlsTranscode.checked
+            settingsHlsTranscode ? settingsHlsTranscode.checked : false
         );
         saveStatus.classList.add('success');
         saveStatus.textContent = 'Settings saved successfully!';

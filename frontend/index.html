@@ -88,31 +88,32 @@
                     <div class="settings-group">
                         <label for="setting-domain">AnimePahe Domain</label>
                         <input type="text" id="setting-domain" placeholder="https://animepahe.pw">
-                        <small>Custom mirror/domain since AnimePahe changes them frequently</small>
                     </div>
 
                     <div class="settings-group">
                         <label for="setting-ua">User-Agent</label>
                         <textarea id="setting-ua" rows="2" placeholder="Mozilla/5.0..."></textarea>
-                        <small>Must match the browser User-Agent used to get clearance cookies</small>
                     </div>
 
                     <div class="settings-row">
-                        <div class="settings-group half">
-                            <label for="setting-browser">Verification Browser</label>
-                            <select id="setting-browser">
-                                <option value="auto">Auto (Default)</option>
-                                <option value="chrome">Google Chrome</option>
+                        <div class="settings-group">
+                            <label for="setting-browser">Browser Type</label>
+                            <select id="setting-browser" class="compact-select">
+                                <option value="auto">Auto</option>
+                                <option value="chrome">Chrome</option>
                                 <option value="brave">Brave</option>
-                                <option value="edge">Microsoft Edge</option>
+                                <option value="edge">Edge</option>
                                 <option value="chromium">Chromium</option>
                                 <option value="vivaldi">Vivaldi</option>
                                 <option value="opera">Opera</option>
                             </select>
                         </div>
-                        <div class="settings-group half">
-                            <label for="setting-browser-path">Custom Browser Path (Optional)</label>
-                            <input type="text" id="setting-browser-path" placeholder="Override executable path...">
+                        <div class="settings-group half flex-grow">
+                            <label for="setting-browser-path">Browser Location</label>
+                            <div class="directory-input-row">
+                                <input type="text" id="setting-browser-path" placeholder="Executable location..." readonly>
+                                <button type="button" class="btn-primary" id="btn-browse-browser-path">Browse</button>
+                            </div>
                         </div>
                     </div>
 
@@ -135,7 +136,7 @@
                     <div class="settings-row">
                         <div class="settings-group half">
                             <label for="setting-quality">Preferred Quality</label>
-                            <select id="setting-quality">
+                            <select id="setting-quality" class="compact-select">
                                 <option value="1080">1080p</option>
                                 <option value="720">720p</option>
                                 <option value="480">480p</option>
@@ -144,37 +145,36 @@
                         </div>
                         <div class="settings-group half">
                             <label for="setting-audio">Preferred Language</label>
-                            <select id="setting-audio">
+                            <select id="setting-audio" class="compact-select">
                                 <option value="jpn">Subbed (Japanese)</option>
                                 <option value="eng">Dubbed (English)</option>
                             </select>
                         </div>
                     </div>
 
-                    <div class="settings-group">
-                        <label for="setting-parallel">Max Parallel Downloads</label>
-                        <select id="setting-parallel">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
-                            <option value="6">6</option>
-                        </select>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="setting-theme">Application Theme</label>
-                        <select id="setting-theme">
-                            <option value="glow">Cyberpunk Glow</option>
-                            <option value="solid">Midnight Solid</option>
-                        </select>
-                    </div>
-
+                    <div class="settings-row">
+                        <div class="settings-group half">
+                            <label for="setting-parallel">Max Parallel Downloads</label>
+                            <select id="setting-parallel" class="compact-select">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                            </select>
+                        </div>
+                        <div class="settings-group half">
+                            <label for="setting-theme">Application Theme</label>
+                            <select id="setting-theme" class="compact-select">
+                                <option value="glow">Cyberpunk Glow</option>
+                                <option value="solid">Midnight Solid</option>
+                            </select>
+                        </div>
                     <div class="settings-group">
                         <label class="checkbox-container">
                             <input type="checkbox" id="setting-hls-transcode">
-                            <span>Transcode HLS Streams (Slower, fixes video freezing/skipping issues)</span>
+                            <span>Full Video Transcode (Slower, re-encodes video to fix broken or freezing frames)</span>
                         </label>
                     </div>
 

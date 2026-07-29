@@ -213,6 +213,22 @@ func (a *App) SelectDirectory() (string, error) {
 	})
 }
 
+func (a *App) SelectBrowserFile() (string, error) {
+	return wailsRuntime.OpenFileDialog(a.ctx, wailsRuntime.OpenDialogOptions{
+		Title: "Select Browser Executable",
+		Filters: []wailsRuntime.FileFilter{
+			{
+				DisplayName: "Executables (*.exe)",
+				Pattern:     "*.exe;*.cmd;*.bat;*.sh",
+			},
+			{
+				DisplayName: "All Files (*.*)",
+				Pattern:     "*.*",
+			},
+		},
+	})
+}
+
 func (a *App) GetConfig() (*config.Config, error) {
 	return config.Load()
 }

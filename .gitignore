@@ -19,3 +19,6 @@ Thumbs.db
 # Node/Vite frontend artifacts
 frontend/node_modules/
 frontend/dist/
+
+# Local Agent Rules
+.agents/

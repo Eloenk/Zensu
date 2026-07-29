@@ -279,6 +279,7 @@ input[type="text"], select, textarea {
     color: var(--text-primary);
     font-family: var(--font-sans);
     font-size: 0.9rem;
+    font-weight: 300;
     padding: 10px 14px;
     transition: all 0.3s;
     outline: none;
@@ -288,6 +289,14 @@ input[type="text"], select, textarea {
 select option {
     background-color: #0f101f;
     color: #ffffff;
+    font-weight: 300;
+}
+
+select.compact-select {
+    width: auto;
+    min-width: 105px;
+    max-width: 130px;
+    font-weight: 300;
 }
 
 input[type="text"]:focus, select:focus, textarea:focus {
@@ -689,6 +698,10 @@ button:disabled {
 .settings-group.half {
     flex: 1 1 calc(50% - 8px);
     box-sizing: border-box;
+}
+
+.flex-grow {
+    flex: 1 1 auto;
 }
 
 .form-actions {
