@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.2] - 2026-07-30
+
+### Added
+- **Episode Range Selection:** Added From and To range input boxes to the episode modal for real-time range filtering. Range inputs automatically clamp to available episode bounds and prevent backward ranges.
+
 ## [Unreleased]
 
 ### Fixed

@@ -84,8 +84,9 @@ const modalEpisodesList = document.getElementById('modal-episodes-list');
 const modalCloseBtn = document.getElementById('modal-close-btn');
 const modalCancelBtn = document.getElementById('modal-cancel-btn');
 const modalDownloadBtn = document.getElementById('modal-download-btn');
-const modalSelectAll = document.getElementById('modal-select-all');
 const modalSelectNone = document.getElementById('modal-select-none');
+const modalRangeFrom = document.getElementById('modal-range-from');
+const modalRangeTo = document.getElementById('modal-range-to');
 
 // ----------------------------------------------------
 // Tab Switching
@@ -345,8 +346,22 @@ async function openEpisodeModal(title, slug, posterURL) {
         if (eps.length === 0) {
             modalEpisodesList.innerHTML = '<div style="grid-column: span 4; text-align: center; color: var(--text-secondary);">No episodes found.</div>';
             modalStatusText.textContent = 'No episodes found.';
+            modalRangeFrom.value = '';
+            modalRangeTo.value = '';
             return;
         }
+
+        const epNums = eps.map(e => e.episode);
+        const minEp = Math.min(...epNums);
+        const maxEp = Math.max(...epNums);
+        modalRangeFrom.min = minEp;
+        modalRangeFrom.max = maxEp;
+        modalRangeFrom.placeholder = `${minEp}`;
+        modalRangeFrom.value = '';
+        modalRangeTo.min = minEp;
+        modalRangeTo.max = maxEp;
+        modalRangeTo.placeholder = `${maxEp}`;
+        modalRangeTo.value = '';
 
         // Keep track of which episodes are currently active in downloads list (queued, downloading, or done)
         const activeOrCompletedEps = new Set();
@@ -411,13 +426,74 @@ function updateModalDownloadBtnState() {
 modalCloseBtn.addEventListener('click', closeEpisodeModal);
 modalCancelBtn.addEventListener('click', closeEpisodeModal);
 
-modalSelectAll.addEventListener('click', () => {
-    const checkboxes = modalEpisodesList.querySelectorAll('input[type="checkbox"]:not(:disabled)');
-    checkboxes.forEach(cb => cb.checked = true);
+function applyEpisodeRange(changedField) {
+    if (!episodeList || episodeList.length === 0) return;
+    const epNums = episodeList.map(e => e.episode);
+    const minEp = Math.min(...epNums);
+    const maxEp = Math.max(...epNums);
+
+    let rawFrom = modalRangeFrom.value !== '' ? parseFloat(modalRangeFrom.value) : null;
+    let rawTo = modalRangeTo.value !== '' ? parseFloat(modalRangeTo.value) : null;
+
+    if (rawFrom !== null) {
+        if (rawFrom > maxEp) {
+            rawFrom = maxEp;
+            modalRangeFrom.value = maxEp;
+        }
+        if (rawFrom < minEp) {
+            rawFrom = minEp;
+            modalRangeFrom.value = minEp;
+        }
+    }
+
+    if (rawTo !== null) {
+        if (rawTo > maxEp) {
+            rawTo = maxEp;
+            modalRangeTo.value = maxEp;
+        }
+        if (rawTo < minEp) {
+            rawTo = minEp;
+            modalRangeTo.value = minEp;
+        }
+    }
+
+    if (rawFrom !== null && rawTo !== null) {
+        if (changedField === 'from' && rawFrom > rawTo) {
+            rawTo = rawFrom;
+            modalRangeTo.value = rawFrom;
+        } else if (changedField === 'to' && rawTo < rawFrom) {
+            rawFrom = rawTo;
+            modalRangeFrom.value = rawTo;
+        }
+    }
+
+    if (rawFrom === null && rawTo === null) return;
+
+    const fromVal = rawFrom !== null ? rawFrom : minEp;
+    const toVal = rawTo !== null ? rawTo : maxEp;
+
+    const checkboxes = modalEpisodesList.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        const epNum = parseFloat(cb.value);
+        if (epNum >= fromVal && epNum <= toVal) {
+            if (!cb.disabled) {
+                cb.checked = true;
+            }
+        } else {
+            cb.checked = false;
+        }
+    });
+
     updateModalDownloadBtnState();
-});
+}
+
+modalRangeFrom.addEventListener('input', () => applyEpisodeRange('from'));
+modalRangeTo.addEventListener('input', () => applyEpisodeRange('to'));
+
 
 modalSelectNone.addEventListener('click', () => {
+    modalRangeFrom.value = '';
+    modalRangeTo.value = '';
     const checkboxes = modalEpisodesList.querySelectorAll('input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = false);
     updateModalDownloadBtnState();

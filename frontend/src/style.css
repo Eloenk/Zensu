@@ -830,8 +830,62 @@ button:disabled {
     padding: 12px 24px;
     background: rgba(255,255,255,0.02);
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 10px;
     border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.episode-range-picker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #ffffff;
+}
+
+.range-label {
+    font-size: 0.85rem;
+    color: #ffffff;
+    font-weight: 500;
+}
+
+.range-separator {
+    color: #ffffff;
+    font-size: 0.85rem;
+    margin: 0 2px;
+}
+
+.range-input {
+    width: 65px;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 0.825rem;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.range-input::placeholder {
+    color: #ffffff;
+    opacity: 0.75;
+}
+
+.range-input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+}
+
+.range-input::-webkit-inner-spin-button,
+.range-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.range-input[type=number] {
+    -moz-appearance: textfield;
 }
 
 .modal-body {

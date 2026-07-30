@@ -202,7 +202,13 @@
             </div>
             
             <div class="modal-actions-row">
-                <button class="btn-secondary btn-sm" id="modal-select-all">Select All</button>
+                <div class="episode-range-picker">
+                    <span class="range-label">From</span>
+                    <input type="number" id="modal-range-from" class="range-input" placeholder="1" min="1">
+                    <span class="range-separator">-</span>
+                    <span class="range-label">To</span>
+                    <input type="number" id="modal-range-to" class="range-input" placeholder="1" min="1">
+                </div>
                 <button class="btn-secondary btn-sm" id="modal-select-none">Clear Selection</button>
             </div>
 
