@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -555,4 +556,25 @@ func (a *App) CancelAnimeDownloads(animeTitle string) error {
 		}
 	}
 	return nil
+}
+
+func (a *App) OpenDownloadFolder() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %v", err)
+	}
+	dir := cfg.DownloadDir
+	if dir == "" {
+		return fmt.Errorf("download directory is not configured")
+	}
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create download directory: %v", err)
+		}
+	}
+	return exec.Command("explorer", dir).Start()
+}
+
+func (a *App) GetAnimeMetadata(title string) (*api.MetadataResult, error) {
+	return api.FetchAnimeMetadata(title)
 }

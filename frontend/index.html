@@ -69,7 +69,10 @@
                             <h1>Downloads</h1>
                             <p>Track active episodes downloading to your system</p>
                         </div>
-                        <button class="btn-secondary btn-sm" id="btn-clear-downloads" style="height: fit-content;">Clear History</button>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button class="btn-secondary btn-sm" id="btn-open-download-dir" style="height: fit-content;">📁 Open Folder</button>
+                            <button class="btn-secondary btn-sm" id="btn-clear-downloads" style="height: fit-content;">Clear History</button>
+                        </div>
                     </div>
                 </div>
 
@@ -130,6 +133,7 @@
                         <div class="directory-input-row">
                             <input type="text" id="setting-dir" placeholder="Select a folder..." readonly>
                             <button type="button" class="btn-primary" id="btn-browse-dir">Browse</button>
+                            <button type="button" class="btn-secondary" id="btn-open-dir-settings">Open Folder</button>
                         </div>
                     </div>
 

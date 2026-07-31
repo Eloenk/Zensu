@@ -14,6 +14,10 @@ export function FetchCredentialsFromBrowser() {
   return window['go']['main']['App']['FetchCredentialsFromBrowser']();
 }
 
+export function GetAnimeMetadata(arg1) {
+  return window['go']['main']['App']['GetAnimeMetadata'](arg1);
+}
+
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
@@ -36,6 +40,10 @@ export function GetProgress() {
 
 export function IsOnline() {
   return window['go']['main']['App']['IsOnline']();
+}
+
+export function OpenDownloadFolder() {
+  return window['go']['main']['App']['OpenDownloadFolder']();
 }
 
 export function RetryFailed(arg1) {

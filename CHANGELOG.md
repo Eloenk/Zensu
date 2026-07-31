@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Episode Range Selection:** Added From and To range input boxes to the episode modal for real-time range filtering. Range inputs automatically clamp to available episode bounds and prevent backward ranges.
+- **Open Download Directory:** Added 1-click "Open Folder" buttons in the Downloads and Settings panels to open the root download directory in Windows File Explorer.
+- **Dual Metadata API Resolution:** Integrated metadata resolution for anime airing status using AniList GraphQL API with automatic fallback to Jikan (MyAnimeList) API.
 
 ## [Unreleased]
 

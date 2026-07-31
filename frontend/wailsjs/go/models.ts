@@ -1,3 +1,26 @@
+export namespace api {
+	
+	export class MetadataResult {
+	    title: string;
+	    airingStatus: string;
+	    totalEpisodes: number;
+	    source: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MetadataResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.title = source["title"];
+	        this.airingStatus = source["airingStatus"];
+	        this.totalEpisodes = source["totalEpisodes"];
+	        this.source = source["source"];
+	    }
+	}
+
+}
+
 export namespace config {
 	
 	export class Config {

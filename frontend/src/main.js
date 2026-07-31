@@ -13,7 +13,8 @@ import {
     RetryFailed,
     CancelAnimeDownloads,
     FetchCredentialsFromBrowser,
-    GetDetectedBrowsers
+    GetDetectedBrowsers,
+    OpenDownloadFolder
 } from '../wailsjs/go/main/App';
 
 function applyTheme(theme) {
@@ -74,6 +75,8 @@ const btnBrowseDir = document.getElementById('btn-browse-dir');
 const btnBrowseBrowserPath = document.getElementById('btn-browse-browser-path');
 const btnFetchCf = document.getElementById('btn-fetch-cf');
 const btnClearDownloads = document.getElementById('btn-clear-downloads');
+const btnOpenDownloadDir = document.getElementById('btn-open-download-dir');
+const btnOpenDirSettings = document.getElementById('btn-open-dir-settings');
 const saveStatus = document.getElementById('save-status');
 
 const episodeModal = document.getElementById('episode-modal');
@@ -864,6 +867,26 @@ if (btnClearDownloads) {
             downloadsList.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 40px 0;">No active or past downloads.</div>';
         } catch (err) {
             console.error('Failed to clear download history:', err);
+        }
+    });
+}
+
+if (btnOpenDownloadDir) {
+    btnOpenDownloadDir.addEventListener('click', async () => {
+        try {
+            await OpenDownloadFolder();
+        } catch (err) {
+            console.error('Failed to open download folder:', err);
+        }
+    });
+}
+
+if (btnOpenDirSettings) {
+    btnOpenDirSettings.addEventListener('click', async () => {
+        try {
+            await OpenDownloadFolder();
+        } catch (err) {
+            console.error('Failed to open download folder:', err);
         }
     });
 }
