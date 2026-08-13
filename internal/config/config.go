@@ -10,17 +10,22 @@ import (
 )
 
 type Config struct {
-	UA           string `json:"ua"`
-	CF           string `json:"cf"`
-	Cookies      string `json:"cookies"`
-	DownloadDir  string `json:"downloadDir"`
-	MaxParallel  int    `json:"maxParallel"`
-	Quality      string `json:"quality"`
-	Audio        string `json:"audio"`
-	Domain       string `json:"domain"`
-	HlsTranscode bool   `json:"hlsTranscode"`
-	Browser      string `json:"browser"`
-	BrowserPath  string `json:"browserPath"`
+	UA                      string `json:"ua"`
+	CF                      string `json:"cf"`
+	Cookies                 string `json:"cookies"`
+	DownloadDir             string `json:"downloadDir"`
+	MaxParallel             int    `json:"maxParallel"`
+	Quality                 string `json:"quality"`
+	Audio                   string `json:"audio"`
+	Domain                  string `json:"domain"`
+	Provider                string `json:"provider"`
+	HlsTranscode            bool   `json:"hlsTranscode"`
+	Browser                 string `json:"browser"`
+	BrowserPath             string `json:"browserPath"`
+	MinimizeToTray          bool   `json:"minimizeToTray"`
+	EnableBackgroundMonitor bool   `json:"enableBackgroundMonitor"`
+	AutoDownloadTracked     bool   `json:"autoDownloadTracked"`
+	PollIntervalMinutes     int    `json:"pollIntervalMinutes"`
 }
 
 var (
@@ -58,15 +63,19 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(cfgPath)
 	if err != nil {
 		cfg := Config{
-			UA:           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
-			Domain:       "https://animepahe.pw",
-			MaxParallel:  3,
-			Quality:      "1080",
-			Audio:        "jpn",
-			DownloadDir:  defaultDownloadDir(),
-			HlsTranscode: false,
-			Browser:      "auto",
-			BrowserPath:  "",
+			UA:                      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+			Domain:                  "https://animepahe.pw",
+			MaxParallel:             3,
+			Quality:                 "1080",
+			Audio:                   "jpn",
+			DownloadDir:             defaultDownloadDir(),
+			HlsTranscode:            false,
+			Browser:                 "auto",
+			BrowserPath:             "",
+			MinimizeToTray:          true,
+			EnableBackgroundMonitor: true,
+			AutoDownloadTracked:     true,
+			PollIntervalMinutes:     30,
 		}
 		if err := cfg.Save(); err != nil {
 			return nil, err
@@ -99,6 +108,10 @@ func Load() (*Config, error) {
 		cfg.MaxParallel = 3
 	}
 
+	if cfg.PollIntervalMinutes <= 0 {
+		cfg.PollIntervalMinutes = 30
+	}
+
 	cfg.Quality = strings.ToLower(strings.TrimSpace(cfg.Quality))
 	if strings.HasSuffix(cfg.Quality, "p") {
 		cfg.Quality = strings.TrimSuffix(cfg.Quality, "p")
@@ -121,6 +134,11 @@ func Load() (*Config, error) {
 		cfg.Domain = "https://animepahe.pw"
 	} else if !strings.HasPrefix(cfg.Domain, "http://") && !strings.HasPrefix(cfg.Domain, "https://") {
 		cfg.Domain = "https://" + cfg.Domain
+	}
+
+	cfg.Provider = strings.ToLower(strings.TrimSpace(cfg.Provider))
+	if cfg.Provider != "anikoto" {
+		cfg.Provider = "animepahe"
 	}
 
 	configMu.Lock()

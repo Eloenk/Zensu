@@ -32,6 +32,18 @@ type Job struct {
 	IsHLS        bool
 	OutputPath   string
 	HlsTranscode bool
+	Referer      string
+}
+
+func (j *Job) GetReferer() string {
+	if j.Referer != "" {
+		return j.Referer
+	}
+	uLower := strings.ToLower(j.URL)
+	if strings.Contains(uLower, "mewstream") || strings.Contains(uLower, "cloudvideo") || strings.Contains(uLower, "megaplay") || strings.Contains(uLower, "anikoto") || strings.Contains(uLower, "lostproject") {
+		return "https://megaplay.buzz/"
+	}
+	return "https://kwik.cx/"
 }
 
 type Result struct {
@@ -549,12 +561,43 @@ func (m *Manager) downloadDirect(ctx context.Context, job Job) error {
 	return os.Rename(tmpPath, job.OutputPath)
 }
 
-func (m *Manager) fetchM3U8Content(ctx context.Context, playlistURL string, ua string) (string, error) {
+func selectMasterVariant(basePlaylistURL, content string) string {
+	base, err := url.Parse(basePlaylistURL)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "#EXT-X-STREAM-INF:") {
+			for j := i + 1; j < len(lines); j++ {
+				next := strings.TrimSpace(lines[j])
+				if next != "" && !strings.HasPrefix(next, "#") {
+					if u, err := url.Parse(next); err == nil {
+						return base.ResolveReference(u).String()
+					}
+					break
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func (m *Manager) fetchM3U8Content(ctx context.Context, playlistURL string, ua string, referer string) (string, error) {
 	req, err := fhttp.NewRequestWithContext(ctx, "GET", playlistURL, nil)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Referer", "https://kwik.cx/")
+	if referer == "" {
+		uLower := strings.ToLower(playlistURL)
+		if strings.Contains(uLower, "mewstream") || strings.Contains(uLower, "cloudvideo") || strings.Contains(uLower, "megaplay") || strings.Contains(uLower, "anikoto") || strings.Contains(uLower, "lostproject") || strings.Contains(uLower, "akirax") {
+			referer = "https://megaplay.buzz/"
+		} else {
+			referer = "https://kwik.cx/"
+		}
+	}
+	req.Header.Set("Referer", referer)
 	if ua != "" {
 		req.Header.Set("User-Agent", ua)
 	} else {
@@ -572,7 +615,16 @@ func (m *Manager) fetchM3U8Content(ctx context.Context, playlistURL string, ua s
 	if err != nil {
 		return "", err
 	}
-	return string(bodyBytes), nil
+
+	content := string(bodyBytes)
+	if strings.Contains(content, "#EXT-X-STREAM-INF") {
+		subURL := selectMasterVariant(playlistURL, content)
+		if subURL != "" && subURL != playlistURL {
+			return m.fetchM3U8Content(ctx, subURL, ua, referer)
+		}
+	}
+
+	return content, nil
 }
 
 func parseM3U8(playlistURL string, content string) ([]string, []float64, string, string, error) {
@@ -603,11 +655,9 @@ func parseM3U8(playlistURL string, content string) ([]string, []float64, string,
 					if u, err := url.Parse(kURL); err == nil {
 						keyURL = base.ResolveReference(u).String()
 					}
-					// Replace the original URI with the local one
 					keyLine = line[:start] + "key.key" + line[start+end:]
 				}
 			} else {
-				// Fallback if key exists but URI is missing/different format
 				keyLine = line
 			}
 		} else if strings.HasPrefix(line, "#EXTINF:") {
@@ -634,7 +684,7 @@ func parseM3U8(playlistURL string, content string) ([]string, []float64, string,
 }
 
 func (m *Manager) getM3U8Duration(playlistURL string, ua string) float64 {
-	content, err := m.fetchM3U8Content(context.Background(), playlistURL, ua)
+	content, err := m.fetchM3U8Content(context.Background(), playlistURL, ua, "")
 	if err != nil {
 		return 1440
 	}
@@ -683,7 +733,7 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 
 	fmt.Printf("\r\033[K  E%02.0f  [HLS] fetching playlist...\n", job.EpNum)
 
-	playlistContent, err := m.fetchM3U8Content(ctx, job.URL, ua)
+	playlistContent, err := m.fetchM3U8Content(ctx, job.URL, ua, job.GetReferer())
 	if err != nil {
 		logger.Errorf("DL_HLS_PLAYLIST_ERR", "Failed to fetch playlist: %v", err)
 		return err
@@ -695,7 +745,6 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 		return err
 	}
 
-	// Create a temporary directory for local offline packaging
 	tempDir, err := os.MkdirTemp("", "zensu-hls-*")
 	if err != nil {
 		logger.Errorf("DL_HLS_TEMP_ERR", "Failed to create temp directory: %v", err)
@@ -703,13 +752,12 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 	}
 	defer os.RemoveAll(tempDir)
 
-	// 1. Download decryption key if present
 	if keyURL != "" {
 		req, err := fhttp.NewRequestWithContext(ctx, "GET", keyURL, nil)
 		if err != nil {
 			return err
 		}
-		req.Header.Set("Referer", "https://kwik.cx/")
+		req.Header.Set("Referer", job.GetReferer())
 		req.Header.Set("User-Agent", ua)
 
 		resp, err := m.client.Do(req)
@@ -762,7 +810,7 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 				lastSegmentErr = err
 				break
 			}
-			req.Header.Set("Referer", "https://kwik.cx/")
+			req.Header.Set("Referer", job.GetReferer())
 			req.Header.Set("User-Agent", ua)
 
 			resp, err := m.client.Do(req)

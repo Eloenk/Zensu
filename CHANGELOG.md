@@ -9,10 +9,12 @@ All notable changes to this project will be documented in this file.
 - **Open Download Directory:** Added 1-click "Open Folder" buttons in the Downloads and Settings panels to open the root download directory in Windows File Explorer.
 - **Dual Metadata API Resolution:** Integrated metadata resolution for anime airing status using AniList GraphQL API with automatic fallback to Jikan (MyAnimeList) API.
 
-## [Unreleased]
+## [1.4.0] - 2026-08-13
+
+### Added
+- **Provider Button Toggle UI:** Converted provider dropdown selection into button toggles (AnimePahe / Anikoto TV) in search bar with automatic search result clearing when switching providers.
+- **Browser Abstraction:** Added support for other chromium based browsers (Chrome, Edge, Brave, Vivaldi, Opera).
 
 ### Fixed
 - **HLS Segment Downloader:** Enclosed both the HTTP request (`Do`) and stream copying (`io.Copy`) operations inside the 5-attempt segment retry loop.
 - **Progress Rate Inflation:** Separated progress tracking into `completedSegmentsBytes` and `currentSegmentBytes` to prevent byte counting duplication during segment retry attempts.
-### Added
-- **Browser Abstraction:** Added support for other chromium based browsers (Chrome, Edge, Brave, Vivaldi, Opera)

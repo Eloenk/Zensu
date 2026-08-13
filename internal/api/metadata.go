@@ -19,32 +19,54 @@ const (
 )
 
 type MetadataResult struct {
-	Title         string       `json:"title"`
-	AiringStatus  AiringStatus `json:"airingStatus"`
-	TotalEpisodes int          `json:"totalEpisodes"`
-	Source        string       `json:"source"`
+	Title          string       `json:"title"`
+	AiringStatus   AiringStatus `json:"airingStatus"`
+	TotalEpisodes  int          `json:"totalEpisodes"`
+	Source         string       `json:"source"`
+	NextEpisodeNum int          `json:"nextEpisodeNum"`
+	NextAiringAt   int64        `json:"nextAiringAt"` // Unix timestamp in seconds
+	Score          float64      `json:"score"`
+	BroadcastDay   string       `json:"broadcastDay"`
 }
 
 type AniListResponse struct {
 	Data struct {
 		Media struct {
-			Status   string `json:"status"`
-			Episodes int    `json:"episodes"`
+			Status            string `json:"status"`
+			Episodes          int    `json:"episodes"`
+			MeanScore         int    `json:"meanScore"`
+			NextAiringEpisode *struct {
+				Episode  int   `json:"episode"`
+				AiringAt int64 `json:"airingAt"`
+			} `json:"nextAiringEpisode"`
 		} `json:"Media"`
 	} `json:"data"`
 }
 
 type JikanResponse struct {
 	Data []struct {
-		Status   string `json:"status"`
-		Airing   bool   `json:"airing"`
-		Episodes int    `json:"episodes"`
+		Status    string  `json:"status"`
+		Airing    bool    `json:"airing"`
+		Episodes  int     `json:"episodes"`
+		Score     float64 `json:"score"`
+		Broadcast struct {
+			Day string `json:"day"`
+		} `json:"broadcast"`
 	} `json:"data"`
 }
 
 func FetchAnimeMetadata(title string) (*MetadataResult, error) {
 	result, err := FetchAniListMetadata(title)
 	if err == nil && result != nil && result.AiringStatus != StatusUnknown {
+		// Enrich with Jikan score/broadcast if AniList score is zero
+		if jResult, jErr := FetchJikanMetadata(title); jErr == nil && jResult != nil {
+			if result.Score == 0 && jResult.Score > 0 {
+				result.Score = jResult.Score
+			}
+			if result.BroadcastDay == "" && jResult.BroadcastDay != "" {
+				result.BroadcastDay = jResult.BroadcastDay
+			}
+		}
 		return result, nil
 	}
 
@@ -69,6 +91,11 @@ func FetchAniListMetadata(title string) (*MetadataResult, error) {
 		Media (search: $search, type: ANIME) {
 			status
 			episodes
+			meanScore
+			nextAiringEpisode {
+				episode
+				airingAt
+			}
 		}
 	}`
 	reqBody, err := json.Marshal(map[string]interface{}{
@@ -107,12 +134,20 @@ func FetchAniListMetadata(title string) (*MetadataResult, error) {
 		status = StatusFinished
 	}
 
-	return &MetadataResult{
+	res := &MetadataResult{
 		Title:         title,
 		AiringStatus:  status,
 		TotalEpisodes: aniResp.Data.Media.Episodes,
+		Score:         float64(aniResp.Data.Media.MeanScore) / 10.0,
 		Source:        "AniList",
-	}, nil
+	}
+
+	if aniResp.Data.Media.NextAiringEpisode != nil {
+		res.NextEpisodeNum = aniResp.Data.Media.NextAiringEpisode.Episode
+		res.NextAiringAt = aniResp.Data.Media.NextAiringEpisode.AiringAt
+	}
+
+	return res, nil
 }
 
 func FetchJikanMetadata(title string) (*MetadataResult, error) {
@@ -151,6 +186,8 @@ func FetchJikanMetadata(title string) (*MetadataResult, error) {
 		Title:         title,
 		AiringStatus:  status,
 		TotalEpisodes: item.Episodes,
+		Score:         item.Score,
+		BroadcastDay:  item.Broadcast.Day,
 		Source:        "Jikan",
 	}, nil
 }

@@ -6,11 +6,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"zensu/internal/config"
 	"zensu/internal/logger"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:frontend/dist
@@ -46,7 +48,26 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 20, G: 20, B: 30, A: 255},
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
-		Logger:           &logger.WailsLogger{},
+		OnBeforeClose: func(ctx context.Context) (prevent bool) {
+			cfg, err := config.Load()
+			if err == nil && cfg.MinimizeToTray {
+				logger.Infof("APP_MINIMIZE_TRAY", "Hiding window to background tray...")
+				wailsRuntime.WindowHide(ctx)
+				return true
+			}
+			return false
+		},
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: "zensu-anime-downloader-lock",
+			OnSecondInstanceLaunch: func(secondInstanceData options.SecondInstanceData) {
+				logger.Infof("SINGLE_INSTANCE", "Second instance launch detected, bringing main window to front...")
+				if app.ctx != nil {
+					wailsRuntime.WindowShow(app.ctx)
+					wailsRuntime.WindowUnminimise(app.ctx)
+				}
+			},
+		},
+		Logger: &logger.WailsLogger{},
 		Bind: []interface{}{
 			app,
 		},

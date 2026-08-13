@@ -361,6 +361,43 @@ button:disabled {
 .search-bar {
     display: flex;
     gap: 12px;
+    align-items: center;
+}
+
+.provider-toggle-group {
+    display: inline-flex;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 3px;
+    align-items: center;
+}
+
+.provider-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+}
+
+.provider-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.provider-btn.active {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+    font-weight: 600;
 }
 
 .search-bar input {
@@ -479,6 +516,7 @@ button:disabled {
     flex-direction: column;
     justify-content: center;
     flex-grow: 1;
+    min-width: 0;
 }
 
 .anime-card:hover {
@@ -491,14 +529,16 @@ button:disabled {
 .anime-card h3 {
     margin: 0;
     color: var(--text-primary);
-    font-size: 1.05rem;
+    font-size: 0.95rem;
     font-weight: 600;
-    line-height: 1.4;
+    line-height: 1.35;
     overflow: hidden;
     transition: color 0.3s ease;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 /* Downloads view specifically */
@@ -1109,4 +1149,92 @@ body.is-offline .btn-cancel {
     accent-color: var(--accent-cyan);
     cursor: pointer;
     margin: 0;
+}
+
+/* Tracked anime & status pill styles */
+.tracked-card {
+    position: relative;
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+}
+
+.status-pill {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    z-index: 2;
+}
+
+.pill-releasing {
+    background: #10b981;
+    color: #000;
+}
+
+.pill-finished {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--text-secondary);
+    backdrop-filter: blur(4px);
+}
+
+.tracked-meta {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 6px;
+}
+
+.btn-track-toggle {
+    transition: all 0.2s ease-in-out;
+}
+
+.tracked-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.btn-untrack-inline {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    font-size: 0.75rem;
+    font-weight: 700;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.btn-untrack-inline:hover {
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+    transform: scale(1.1);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+.tracked-countdown {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    margin-top: 4px;
+}
+
+.tracked-score {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #f59e0b;
+    margin-top: 2px;
 }

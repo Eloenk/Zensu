@@ -22,6 +22,8 @@ import (
 	"zensu/internal/dl"
 	"zensu/internal/kwik"
 	"zensu/internal/logger"
+	"zensu/internal/notify"
+	"zensu/internal/tracker"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -30,6 +32,7 @@ type App struct {
 	ctx        context.Context
 	dlManager  *dl.Manager
 	client     *api.Client
+	trackerMgr *tracker.Manager
 	downloadMu sync.Mutex
 	resolveSem chan struct{}
 	slugsMu    sync.Mutex
@@ -40,12 +43,14 @@ func NewApp() *App {
 	return &App{
 		resolveSem: make(chan struct{}, 6),
 		animeSlugs: make(map[string]string),
+		trackerMgr: tracker.NewManager(),
 	}
 }
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	go a.autoCheckAndResolveCredentials()
+	go a.startBackgroundMonitor()
 }
 
 func (a *App) autoCheckAndResolveCredentials() {
@@ -111,27 +116,44 @@ type AnimeResult struct {
 	Poster  string `json:"poster"`
 }
 
-func (a *App) SearchAnime(query string) ([]AnimeResult, error) {
-	logger.Infof("APP_SEARCH", "Searching for anime with query %q", query)
+func (a *App) SearchAnime(query string, provider string) ([]AnimeResult, error) {
+	logger.Infof("APP_SEARCH", "Searching for anime with query %q (provider: %q)", query, provider)
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Errorf("APP_CONFIG_ERR", "Failed to load config: %v", err)
 		return nil, fmt.Errorf("failed to load configuration; see henzuku.log for details")
 	}
-	if cfg.UA == "" || cfg.CF == "" {
+
+	p := strings.ToLower(strings.TrimSpace(provider))
+	if p == "" {
+		p = cfg.Provider
+	}
+	if p != "anikoto" {
+		p = "animepahe"
+	}
+
+	if p == "animepahe" && (cfg.UA == "" || cfg.CF == "") {
 		return nil, fmt.Errorf("please configure User-Agent and Cloudflare clearance in Settings first")
 	}
+
 	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.Domain)
 	if err != nil {
 		logger.Errorf("APP_CLIENT_ERR", "Failed to initialize API client: %v", err)
 		return nil, fmt.Errorf("failed to initialize client; check settings or see henzuku.log")
 	}
-	res, err := client.Search(query)
-	if err != nil {
-		logger.Errorf("APP_SEARCH_ERR", "Search failed for query %q: %v", query, err)
-		return nil, fmt.Errorf("search failed; verify your internet connection and Cloudflare clearance")
+
+	var res []api.SearchResult
+	if p == "anikoto" {
+		res, err = client.SearchAnikoto(query)
+	} else {
+		res, err = client.Search(query)
 	}
-	logger.Infof("APP_SEARCH_OK", "Found %d result(s) for query %q", len(res), query)
+
+	if err != nil {
+		logger.Errorf("APP_SEARCH_ERR", "Search failed for query %q (%s): %v", query, p, err)
+		return nil, fmt.Errorf("search failed; verify your internet connection")
+	}
+	logger.Infof("APP_SEARCH_OK", "Found %d result(s) for query %q (%s)", len(res), query, p)
 	out := make([]AnimeResult, len(res))
 	for i, r := range res {
 		out[i] = AnimeResult{Session: r.Session, Title: r.Title, Poster: r.Poster}
@@ -153,25 +175,42 @@ func sanitizeName(name string) string {
 	return strings.TrimSpace(name)
 }
 
-func (a *App) GetEpisodes(animeTitle, slug string) ([]EpisodeInfo, error) {
-	logger.Infof("APP_EPISODES", "Fetching episodes for %q (slug: %s)", animeTitle, slug)
+func (a *App) GetEpisodes(animeTitle, slug string, provider string) ([]EpisodeInfo, error) {
+	logger.Infof("APP_EPISODES", "Fetching episodes for %q (slug: %s, provider: %s)", animeTitle, slug, provider)
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Errorf("APP_CONFIG_ERR", "Failed to load config: %v", err)
 		return nil, fmt.Errorf("failed to load configuration; see henzuku.log")
 	}
-	if cfg.UA == "" || cfg.CF == "" {
+
+	p := strings.ToLower(strings.TrimSpace(provider))
+	if p == "" {
+		p = cfg.Provider
+	}
+	if p != "anikoto" {
+		p = "animepahe"
+	}
+
+	if p == "animepahe" && (cfg.UA == "" || cfg.CF == "") {
 		return nil, fmt.Errorf("please configure User-Agent and Cloudflare clearance in Settings first")
 	}
+
 	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.Domain)
 	if err != nil {
 		logger.Errorf("APP_CLIENT_ERR", "Failed to initialize API client: %v", err)
 		return nil, fmt.Errorf("failed to initialize client; check settings or see henzuku.log")
 	}
-	eps, err := client.GetEpisodes(slug)
+
+	var eps []api.Episode
+	if p == "anikoto" {
+		eps, err = client.GetAnikotoEpisodes(slug)
+	} else {
+		eps, err = client.GetEpisodes(slug)
+	}
+
 	if err != nil {
 		logger.Errorf("APP_EPISODES_ERR", "Failed to fetch episodes for %s (%s): %v", animeTitle, slug, err)
-		return nil, fmt.Errorf("failed to fetch episodes; verify connection or Cloudflare clearance")
+		return nil, fmt.Errorf("failed to fetch episodes; verify connection")
 	}
 	logger.Infof("APP_EPISODES_OK", "Fetched %d episode(s) for %q", len(eps), animeTitle)
 
@@ -244,8 +283,8 @@ func (a *App) FetchCredentialsFromBrowser() (map[string]string, error) {
 
 	credentials, err := browser.FetchCredentials(cfg.Domain, cfg.Browser, cfg.BrowserPath, cfg.CF)
 	if err != nil {
-		logger.Errorf("APP_BROWSER_CDP_ERR", "Failed to fetch credentials via Browser: %v", err)
-		return nil, fmt.Errorf("failed to fetch credentials via Browser: %w", err)
+		logger.Errorf("APP_FETCH_CREDENTIALS_ERR", "Failed to fetch credentials from browser: %v", err)
+		return nil, fmt.Errorf("failed to fetch credentials: %w", err)
 	}
 
 	logger.Infof("APP_FETCH_CREDENTIALS_OK", "Successfully fetched credentials from Browser: UA length=%d, CF length=%d", len(credentials.UA), len(credentials.CF))
@@ -285,23 +324,49 @@ func (a *App) GetDetectedBrowsers() ([]map[string]string, error) {
 	return detected, nil
 }
 
-func (a *App) SaveConfig(ua, cf, downloadDir, quality, audio, domain, browserName, browserPath string, maxParallel int, hlsTranscode bool) error {
-	logger.Infof("APP_CONFIG_SAVE", "Saving configuration: domain=%s quality=%s audio=%s maxParallel=%d downloadDir=%s browser=%s browserPath=%s hlsTranscode=%t", domain, quality, audio, maxParallel, downloadDir, browserName, browserPath, hlsTranscode)
+func (a *App) SaveConfig(newUA, newCF, newDir, newQuality, newAudio string, maxParallel int, hlsTranscode bool, browserType, browserPath string, minimizeToTray, enableMonitor, autoDownloadTracked bool, pollIntervalMinutes int, provider string) error {
+	logger.Infof("APP_SAVE_SETTINGS", "Saving application settings...")
 	cfg, err := config.Load()
 	if err != nil {
-		return err
+		logger.Errorf("APP_CONFIG_ERR", "Failed to load config: %v", err)
+		return fmt.Errorf("failed to load configuration; see henzuku.log")
 	}
-	cfg.UA = ua
-	cfg.CF = cf
-	cfg.DownloadDir = downloadDir
-	cfg.Quality = quality
-	cfg.Audio = audio
-	cfg.Domain = domain
-	cfg.Browser = browserName
-	cfg.BrowserPath = browserPath
+
+	cfg.UA = strings.TrimSpace(newUA)
+	cfg.CF = strings.TrimSpace(newCF)
+	cfg.Cookies = "cf_clearance=" + cfg.CF
+	if newDir != "" {
+		cfg.DownloadDir = strings.TrimSpace(newDir)
+	}
+	cfg.Quality = strings.TrimSpace(newQuality)
+	cfg.Audio = strings.TrimSpace(newAudio)
 	cfg.MaxParallel = maxParallel
 	cfg.HlsTranscode = hlsTranscode
-	return cfg.Save()
+	cfg.Browser = browserType
+	cfg.BrowserPath = browserPath
+	cfg.MinimizeToTray = minimizeToTray
+	cfg.EnableBackgroundMonitor = enableMonitor
+	cfg.AutoDownloadTracked = autoDownloadTracked
+	cfg.PollIntervalMinutes = pollIntervalMinutes
+	if provider != "" {
+		cfg.Provider = strings.TrimSpace(provider)
+	}
+
+	if err := cfg.Save(); err != nil {
+		logger.Errorf("APP_SAVE_SETTINGS_ERR", "Failed to save settings: %v", err)
+		return fmt.Errorf("failed to save settings: %w", err)
+	}
+
+	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.Domain)
+	if err == nil {
+		a.client = client
+	}
+	if a.dlManager != nil {
+		a.dlManager.SetMaxParallel(cfg.MaxParallel)
+	}
+
+	logger.Infof("APP_SAVE_SETTINGS_OK", "Settings saved successfully")
+	return nil
 }
 
 func (a *App) GetProgress() []*dl.JobProgress {
@@ -317,7 +382,7 @@ func (a *App) ClearProgress() {
 	}
 }
 
-func (a *App) StartDownload(animeTitle, slug string, epNums []float64) error {
+func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []float64) error {
 	a.slugsMu.Lock()
 	a.animeSlugs[animeTitle] = slug
 	a.slugsMu.Unlock()
@@ -330,9 +395,19 @@ func (a *App) StartDownload(animeTitle, slug string, epNums []float64) error {
 		logger.Errorf("APP_CONFIG_ERR", "Failed to load config: %v", err)
 		return fmt.Errorf("failed to load configuration; see henzuku.log")
 	}
-	if cfg.UA == "" || cfg.CF == "" {
+
+	p := strings.ToLower(strings.TrimSpace(provider))
+	if p == "" {
+		p = cfg.Provider
+	}
+	if p != "anikoto" {
+		p = "animepahe"
+	}
+
+	if p == "animepahe" && (cfg.UA == "" || cfg.CF == "") {
 		return fmt.Errorf("please configure User-Agent and Cloudflare clearance in Settings first")
 	}
+
 	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.Domain)
 	if err != nil {
 		logger.Errorf("APP_CLIENT_ERR", "Failed to initialize API client: %v", err)
@@ -346,7 +421,7 @@ func (a *App) StartDownload(animeTitle, slug string, epNums []float64) error {
 		a.dlManager.SetMaxParallel(cfg.MaxParallel)
 	}
 
-	logger.Infof("DOWNLOAD_BATCH_START", "Starting download batch of %d episodes for anime %q (slug: %q)", len(epNums), animeTitle, slug)
+	logger.Infof("DOWNLOAD_BATCH_START", "Starting download batch of %d episodes for anime %q (slug: %q, provider: %q)", len(epNums), animeTitle, slug, p)
 
 	// Clear cancelled state and pre-populate queue with status "queued" using ID (Anime Title + EpNum)
 	var jobIDs []string
@@ -364,7 +439,14 @@ func (a *App) StartDownload(animeTitle, slug string, epNums []float64) error {
 	}
 
 	go func() {
-		eps, err := client.GetEpisodes(slug)
+		var eps []api.Episode
+		var err error
+		if p == "anikoto" {
+			eps, err = client.GetAnikotoEpisodes(slug)
+		} else {
+			eps, err = client.GetEpisodes(slug)
+		}
+
 		if err != nil {
 			logger.Errorf("APP_EPISODES_ERR", "Failed to fetch episodes for %s (%s): %v", animeTitle, slug, err)
 			for i, epNum := range epNums {
@@ -399,48 +481,61 @@ func (a *App) StartDownload(animeTitle, slug string, epNums []float64) error {
 					epStr = fmt.Sprintf("E%.1f", epNum)
 				}
 
-				logger.Infof("RESOLVE_START", "Resolving stream links for %s (session: %s)...", jobID, ep.Session)
+				logger.Infof("RESOLVE_START", "Resolving stream links for %s (provider: %s)...", jobID, p)
 
-				var candidates []api.KwikCandidate
-				var err error
-				for attempt := 1; attempt <= 6; attempt++ {
-					candidates, err = a.client.GetKwikLinks(slug, ep.Session)
-					if err == nil && len(candidates) > 0 {
-						break
-					}
-					if attempt < 6 {
-						time.Sleep(time.Duration(attempt) * 2000 * time.Millisecond)
-					}
-				}
-
-				if err != nil || len(candidates) == 0 {
-					logger.Errorf("APP_KWIK_RESOLVE_ERR", "Failed to resolve kwik redirect links for %s: %v", jobID, err)
-					a.dlManager.UpdateProgress(jobID, animeTitle, epNum, "failed", 0, "", "", "failed to resolve Kwik redirect links (check cookies/User-Agent)")
-					return
-				}
-
-				kwikURL := api.SelectBestKwik(candidates, cfg.Quality, cfg.Audio)
-				if kwikURL == "" {
-					logger.Errorf("APP_KWIK_SELECT_ERR", "No candidate matching %sp/%s found for %s", cfg.Quality, cfg.Audio, jobID)
-					a.dlManager.UpdateProgress(jobID, animeTitle, epNum, "failed", 0, "", "", "no link matching selected quality/audio found")
-					return
-				}
-
-				extractor := kwik.NewExtractor(cfg.UA, cfg.Cookies)
 				var dlURL string
 				var isHLS bool
-				for attempt := 1; attempt <= 6; attempt++ {
-					dlURL, isHLS, err = extractor.GetDownloadURL(kwikURL)
-					if err == nil && dlURL != "" {
-						break
+
+				if p == "anikoto" {
+					for attempt := 1; attempt <= 6; attempt++ {
+						dlURL, isHLS, err = client.GetAnikotoStreamURL(slug, ep.Session, cfg.Audio)
+						if err == nil && dlURL != "" {
+							break
+						}
+						if attempt < 6 {
+							time.Sleep(time.Duration(attempt) * 2000 * time.Millisecond)
+						}
 					}
-					if attempt < 6 {
-						time.Sleep(time.Duration(attempt) * 2000 * time.Millisecond)
+				} else {
+					var candidates []api.KwikCandidate
+					for attempt := 1; attempt <= 6; attempt++ {
+						candidates, err = a.client.GetKwikLinks(slug, ep.Session)
+						if err == nil && len(candidates) > 0 {
+							break
+						}
+						if attempt < 6 {
+							time.Sleep(time.Duration(attempt) * 2000 * time.Millisecond)
+						}
+					}
+
+					if err != nil || len(candidates) == 0 {
+						logger.Errorf("APP_KWIK_RESOLVE_ERR", "Failed to resolve kwik redirect links for %s: %v", jobID, err)
+						a.dlManager.UpdateProgress(jobID, animeTitle, epNum, "failed", 0, "", "", "failed to resolve Kwik redirect links")
+						return
+					}
+
+					kwikURL := api.SelectBestKwik(candidates, cfg.Quality, cfg.Audio)
+					if kwikURL == "" {
+						logger.Errorf("APP_KWIK_SELECT_ERR", "No candidate matching %sp/%s found for %s", cfg.Quality, cfg.Audio, jobID)
+						a.dlManager.UpdateProgress(jobID, animeTitle, epNum, "failed", 0, "", "", "no link matching selected quality/audio found")
+						return
+					}
+
+					extractor := kwik.NewExtractor(cfg.UA, cfg.Cookies)
+					for attempt := 1; attempt <= 6; attempt++ {
+						dlURL, isHLS, err = extractor.GetDownloadURL(kwikURL)
+						if err == nil && dlURL != "" {
+							break
+						}
+						if attempt < 6 {
+							time.Sleep(time.Duration(attempt) * 2000 * time.Millisecond)
+						}
 					}
 				}
+
 				if err != nil || dlURL == "" {
-					logger.Errorf("APP_KWIK_EXTRACT_ERR", "Failed kwik link extraction for %s: %v", jobID, err)
-					a.dlManager.UpdateProgress(jobID, animeTitle, epNum, "failed", 0, "", "", "failed kwik link extraction")
+					logger.Errorf("APP_EXTRACT_ERR", "Failed link extraction for %s (%s): %v", jobID, p, err)
+					a.dlManager.UpdateProgress(jobID, animeTitle, epNum, "failed", 0, "", "", "failed stream link extraction")
 					return
 				}
 
@@ -463,6 +558,11 @@ func (a *App) StartDownload(animeTitle, slug string, epNums []float64) error {
 				sanitizedTitle := sanitizeName(animeTitle)
 				outPath := filepath.Join(cfg.DownloadDir, sanitizedTitle, sanitizedTitle+" "+epStr+".mp4")
 
+				jobReferer := ""
+				if p == "anikoto" {
+					jobReferer = "https://megaplay.buzz/"
+				}
+
 				a.dlManager.Submit(dl.Job{
 					ID:           jobID,
 					AnimeTitle:   animeTitle,
@@ -471,6 +571,7 @@ func (a *App) StartDownload(animeTitle, slug string, epNums []float64) error {
 					IsHLS:        isHLS,
 					OutputPath:   outPath,
 					HlsTranscode: cfg.HlsTranscode,
+					Referer:      jobReferer,
 				})
 			}()
 		}
@@ -540,7 +641,7 @@ func (a *App) RetryFailed(animeTitle string) error {
 		return fmt.Errorf("no failed or active downloads to retry for this anime")
 	}
 
-	return a.StartDownload(animeTitle, slug, epNums)
+	return a.StartDownload(animeTitle, slug, "", epNums)
 }
 
 func (a *App) CancelAnimeDownloads(animeTitle string) error {
@@ -577,4 +678,140 @@ func (a *App) OpenDownloadFolder() error {
 
 func (a *App) GetAnimeMetadata(title string) (*api.MetadataResult, error) {
 	return api.FetchAnimeMetadata(title)
+}
+
+func (a *App) GetTrackedAnime() []tracker.TrackedAnime {
+	if a.trackerMgr == nil {
+		return []tracker.TrackedAnime{}
+	}
+	return a.trackerMgr.GetList()
+}
+
+func (a *App) IsAnimeTracked(title string) bool {
+	if a.trackerMgr == nil {
+		return false
+	}
+	return a.trackerMgr.IsTracked(title)
+}
+
+func (a *App) ToggleTrackAnime(title, slug, poster string) (bool, error) {
+	if a.trackerMgr == nil {
+		return false, fmt.Errorf("tracker manager not initialized")
+	}
+	return a.trackerMgr.ToggleTrack(title, slug, poster)
+}
+
+func (a *App) BatchTrackAnime(shows []tracker.TrackedAnime) (int, error) {
+	if a.trackerMgr == nil {
+		return 0, fmt.Errorf("tracker manager not initialized")
+	}
+	return a.trackerMgr.BatchTrack(shows)
+}
+
+func (a *App) CheckTrackedUpdatesNow() error {
+	logger.Infof("TRACKER_MANUAL_CHECK", "Triggered manual check for tracked anime updates...")
+	go a.performTrackedCheck()
+	return nil
+}
+
+func (a *App) startBackgroundMonitor() {
+	// Initial delay to let application start up cleanly
+	time.Sleep(10 * time.Second)
+
+	for {
+		cfg, err := config.Load()
+		if err == nil && cfg.EnableBackgroundMonitor {
+			logger.Infof("BG_MONITOR", "Starting periodic background update check for tracked anime...")
+			a.performTrackedCheck()
+		}
+
+		interval := 30
+		if cfg != nil && cfg.PollIntervalMinutes > 0 {
+			interval = cfg.PollIntervalMinutes
+		}
+		time.Sleep(time.Duration(interval) * time.Minute)
+	}
+}
+
+func (a *App) performTrackedCheck() {
+	if a.trackerMgr == nil {
+		return
+	}
+
+	tracked := a.trackerMgr.GetList()
+	if len(tracked) == 0 {
+		return
+	}
+
+	cfg, err := config.Load()
+	if err != nil || cfg.UA == "" || cfg.CF == "" {
+		return
+	}
+
+	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.Domain)
+	if err != nil {
+		return
+	}
+
+	for _, item := range tracked {
+		if item.AiringStatus == string(api.StatusFinished) {
+			continue
+		}
+
+		eps, err := client.GetEpisodes(item.Slug)
+		if err != nil {
+			logger.Warnf("BG_EPISODES_ERR", "Background check failed to fetch episodes for %s: %v", item.Title, err)
+			continue
+		}
+
+		var newEps []float64
+		maxEp := item.LastDownloadedEp
+
+		// Determine existing files on disk
+		sanitizedTitle := sanitizeName(item.Title)
+		animeDir := filepath.Join(cfg.DownloadDir, sanitizedTitle)
+		existingEps := make(map[float64]bool)
+		if _, err := os.Stat(animeDir); err == nil {
+			files, _ := os.ReadDir(animeDir)
+			pattern := fmt.Sprintf(`^%s E(\d+(\.\d+)?)\.mp4$`, regexp.QuoteMeta(sanitizedTitle))
+			re, err := regexp.Compile(pattern)
+			if err == nil {
+				for _, f := range files {
+					m := re.FindStringSubmatch(f.Name())
+					if len(m) > 1 {
+						if val, err := strconv.ParseFloat(m[1], 64); err == nil {
+							existingEps[val] = true
+						}
+					}
+				}
+			}
+		}
+
+		for _, e := range eps {
+			if e.Episode > item.LastDownloadedEp && !existingEps[e.Episode] {
+				newEps = append(newEps, e.Episode)
+				if e.Episode > maxEp {
+					maxEp = e.Episode
+				}
+			}
+		}
+
+		if len(newEps) > 0 {
+			msg := fmt.Sprintf("%d new episode(s) released for %s!", len(newEps), item.Title)
+			logger.Infof("BG_NEW_EPISODE", "%s", msg)
+			notify.SendToast("Zensu Anime Update", msg)
+
+			if cfg.AutoDownloadTracked && item.AutoDownload {
+				logger.Infof("BG_AUTO_DOWNLOAD", "Auto-starting download of %d episodes for %s", len(newEps), item.Title)
+				if err := a.StartDownload(item.Title, item.Slug, "", newEps); err == nil {
+					a.trackerMgr.UpdateLastDownloaded(item.Title, maxEp)
+				}
+			}
+		}
+
+		// Update AniList & Jikan metadata status
+		if meta, err := api.FetchAnimeMetadata(item.Title); err == nil && meta != nil {
+			a.trackerMgr.UpdateFullMetadata(item.Title, meta)
+		}
+	}
 }

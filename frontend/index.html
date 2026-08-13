@@ -27,13 +27,18 @@
                     <span>Downloads</span>
                     <span class="badge" id="download-badge" style="display: none;">0</span>
                 </button>
+                <button class="nav-item" id="tab-tracked">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                    <span>Tracked</span>
+                    <span class="badge" id="tracked-badge" style="display: none;">0</span>
+                </button>
                 <button class="nav-item" id="tab-settings">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     <span>Settings</span>
                 </button>
             </nav>
             <div class="sidebar-footer">
-                v1.3.1
+                v1.4.0
             </div>
         </aside>
 
@@ -47,10 +52,17 @@
                 </div>
                 
                 <div class="search-bar">
+                    <div class="provider-toggle-group" id="provider-toggle-group">
+                        <button type="button" class="provider-btn active" data-provider="animepahe">AnimePahe</button>
+                        <button type="button" class="provider-btn" data-provider="anikoto">Anikoto TV</button>
+                    </div>
                     <input type="text" id="search-input" placeholder="Type anime title..." autocomplete="off">
                     <button id="search-btn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                         Search
+                    </button>
+                    <button id="btn-track-all" class="btn-secondary" style="display: none;" title="Track all active search results">
+                        🔔 Track All Airing
                     </button>
                 </div>
 
@@ -78,6 +90,23 @@
 
                 <div class="downloads-container" id="downloads-list">
                     <!-- Progress items will go here -->
+                </div>
+            </section>
+
+            <!-- Tracked Anime Panel -->
+            <section class="panel" id="panel-tracked">
+                <div class="panel-header">
+                    <div class="header-action-row">
+                        <div>
+                            <h1>Tracked Anime</h1>
+                            <p>Subscribed series monitored for new episode releases</p>
+                        </div>
+                        <button class="btn-secondary btn-sm" id="btn-check-updates" style="height: fit-content;">🔄 Check Updates Now</button>
+                    </div>
+                </div>
+
+                <div class="results-grid" id="tracked-results">
+                    <!-- Tracked anime cards will be populated here -->
                 </div>
             </section>
 
@@ -182,6 +211,39 @@
                         </label>
                     </div>
 
+                    <div class="settings-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="setting-minimize-tray">
+                            <span>Minimize to Windows System Tray on Close</span>
+                        </label>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="setting-bg-monitor">
+                            <span>Enable Background Monitor for Airing Anime</span>
+                        </label>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="setting-auto-download-tracked">
+                            <span>Automatically Download New Episodes When Airing</span>
+                        </label>
+                    </div>
+
+                    <div class="settings-row">
+                        <div class="settings-group half">
+                            <label for="setting-poll-interval">Background Check Frequency</label>
+                            <select id="setting-poll-interval" class="compact-select">
+                                <option value="15">Every 15 minutes</option>
+                                <option value="30">Every 30 minutes</option>
+                                <option value="60">Every 1 hour</option>
+                                <option value="120">Every 2 hours</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="form-actions">
                         <button type="submit" class="btn-primary" id="save-settings-btn">Save Changes</button>
                         <span id="save-status" class="save-status-msg"></span>
@@ -206,6 +268,7 @@
             </div>
             
             <div class="modal-actions-row">
+                <button class="btn-secondary btn-sm" id="modal-track-btn">🔔 Track Anime</button>
                 <div class="episode-range-picker">
                     <span class="range-label">From</span>
                     <input type="number" id="modal-range-from" class="range-input" placeholder="1" min="1">

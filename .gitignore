@@ -20,5 +20,6 @@ Thumbs.db
 frontend/node_modules/
 frontend/dist/
 
-# Local Agent Rules
+# Local Agent Rules & Scratch
 .agents/
+scratch/
