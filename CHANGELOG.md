@@ -18,3 +18,8 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **HLS Segment Downloader:** Enclosed both the HTTP request (`Do`) and stream copying (`io.Copy`) operations inside the 5-attempt segment retry loop.
 - **Progress Rate Inflation:** Separated progress tracking into `completedSegmentsBytes` and `currentSegmentBytes` to prevent byte counting duplication during segment retry attempts.
+
+## [1.4.1] - 2026-09-04
+
+### Fixed
+- **Settings Save Signature Mismatch:** Aligned frontend `SaveConfig` arguments with backend Go parameters to prevent type unmarshaling errors.
