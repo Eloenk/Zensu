@@ -324,7 +324,7 @@ func (a *App) GetDetectedBrowsers() ([]map[string]string, error) {
 	return detected, nil
 }
 
-func (a *App) SaveConfig(newUA, newCF, newDir, newQuality, newAudio string, maxParallel int, hlsTranscode bool, browserType, browserPath string, minimizeToTray, enableMonitor, autoDownloadTracked bool, pollIntervalMinutes int, provider string) error {
+func (a *App) SaveConfig(newUA, newCF, newDir, newQuality, newAudio, newDomain, browserType, browserPath string, maxParallel int, hlsTranscode, minimizeToTray, enableMonitor, autoDownloadTracked bool, pollIntervalMinutes int, provider string) error {
 	logger.Infof("APP_SAVE_SETTINGS", "Saving application settings...")
 	cfg, err := config.Load()
 	if err != nil {
@@ -340,10 +340,13 @@ func (a *App) SaveConfig(newUA, newCF, newDir, newQuality, newAudio string, maxP
 	}
 	cfg.Quality = strings.TrimSpace(newQuality)
 	cfg.Audio = strings.TrimSpace(newAudio)
-	cfg.MaxParallel = maxParallel
-	cfg.HlsTranscode = hlsTranscode
+	if newDomain != "" {
+		cfg.Domain = strings.TrimSpace(newDomain)
+	}
 	cfg.Browser = browserType
 	cfg.BrowserPath = browserPath
+	cfg.MaxParallel = maxParallel
+	cfg.HlsTranscode = hlsTranscode
 	cfg.MinimizeToTray = minimizeToTray
 	cfg.EnableBackgroundMonitor = enableMonitor
 	cfg.AutoDownloadTracked = autoDownloadTracked
