@@ -24,9 +24,13 @@ import (
 	"zensu/internal/logger"
 	"zensu/internal/notify"
 	"zensu/internal/tracker"
+	"zensu/internal/tray"
+	"zensu/internal/updater"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+const AppVersion = "1.4.2"
 
 type App struct {
 	ctx        context.Context
@@ -49,6 +53,26 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	updater.CleanupOldBinaries()
+
+	tray.Init(ctx, func() {
+		if a.ctx != nil {
+			wailsRuntime.WindowShow(a.ctx)
+			wailsRuntime.WindowUnminimise(a.ctx)
+		}
+	}, func() {
+		if a.ctx != nil {
+			wailsRuntime.EventsEmit(a.ctx, "trigger-app-update-check")
+		}
+	}, func() {
+		if a.ctx != nil {
+			a.shutdown(a.ctx)
+			wailsRuntime.Quit(a.ctx)
+		} else {
+			os.Exit(0)
+		}
+	})
+
 	go a.autoCheckAndResolveCredentials()
 	go a.startBackgroundMonitor()
 }
@@ -128,7 +152,7 @@ func (a *App) SearchAnime(query string, provider string) ([]AnimeResult, error) 
 	if p == "" {
 		p = cfg.Provider
 	}
-	if p != "anikoto" {
+	if p != "anikoto" && p != "animeheaven" {
 		p = "animepahe"
 	}
 
@@ -145,6 +169,8 @@ func (a *App) SearchAnime(query string, provider string) ([]AnimeResult, error) 
 	var res []api.SearchResult
 	if p == "anikoto" {
 		res, err = client.SearchAnikoto(query)
+	} else if p == "animeheaven" {
+		res, err = client.SearchAnimeHeaven(query)
 	} else {
 		res, err = client.Search(query)
 	}
@@ -187,7 +213,7 @@ func (a *App) GetEpisodes(animeTitle, slug string, provider string) ([]EpisodeIn
 	if p == "" {
 		p = cfg.Provider
 	}
-	if p != "anikoto" {
+	if p != "anikoto" && p != "animeheaven" {
 		p = "animepahe"
 	}
 
@@ -204,6 +230,8 @@ func (a *App) GetEpisodes(animeTitle, slug string, provider string) ([]EpisodeIn
 	var eps []api.Episode
 	if p == "anikoto" {
 		eps, err = client.GetAnikotoEpisodes(slug)
+	} else if p == "animeheaven" {
+		eps, err = client.GetAnimeHeavenEpisodes(slug)
 	} else {
 		eps, err = client.GetEpisodes(slug)
 	}
@@ -324,7 +352,7 @@ func (a *App) GetDetectedBrowsers() ([]map[string]string, error) {
 	return detected, nil
 }
 
-func (a *App) SaveConfig(newUA, newCF, newDir, newQuality, newAudio, newDomain, browserType, browserPath string, maxParallel int, hlsTranscode, minimizeToTray, enableMonitor, autoDownloadTracked bool, pollIntervalMinutes int, provider string) error {
+func (a *App) SaveConfig(newUA, newCF, newDir, newQuality, newAudio, newDomain, browserType, browserPath string, maxParallel int, hlsTranscode, minimizeToTray, enableMonitor, autoDownloadTracked, autoCheckUpdates bool, pollIntervalMinutes int, provider string) error {
 	logger.Infof("APP_SAVE_SETTINGS", "Saving application settings...")
 	cfg, err := config.Load()
 	if err != nil {
@@ -350,6 +378,7 @@ func (a *App) SaveConfig(newUA, newCF, newDir, newQuality, newAudio, newDomain, 
 	cfg.MinimizeToTray = minimizeToTray
 	cfg.EnableBackgroundMonitor = enableMonitor
 	cfg.AutoDownloadTracked = autoDownloadTracked
+	cfg.AutoCheckUpdates = autoCheckUpdates
 	cfg.PollIntervalMinutes = pollIntervalMinutes
 	if provider != "" {
 		cfg.Provider = strings.TrimSpace(provider)
@@ -370,6 +399,14 @@ func (a *App) SaveConfig(newUA, newCF, newDir, newQuality, newAudio, newDomain, 
 
 	logger.Infof("APP_SAVE_SETTINGS_OK", "Settings saved successfully")
 	return nil
+}
+
+func (a *App) CheckAppUpdate() (*updater.UpdateInfo, error) {
+	return updater.CheckUpdate(AppVersion)
+}
+
+func (a *App) InstallAppUpdate(downloadURL string) error {
+	return updater.DownloadAndApplyUpdate(downloadURL)
 }
 
 func (a *App) GetProgress() []*dl.JobProgress {
@@ -403,7 +440,7 @@ func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []f
 	if p == "" {
 		p = cfg.Provider
 	}
-	if p != "anikoto" {
+	if p != "anikoto" && p != "animeheaven" {
 		p = "animepahe"
 	}
 
@@ -499,6 +536,20 @@ func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []f
 							time.Sleep(time.Duration(attempt) * 2000 * time.Millisecond)
 						}
 					}
+				} else if p == "animeheaven" {
+					for attempt := 1; attempt <= 6; attempt++ {
+						mirrors, _, getErr := client.GetAnimeHeavenStream(ep.Session, slug)
+						if getErr == nil && len(mirrors) > 0 {
+							dlURL = mirrors[0]
+							isHLS = false
+							err = nil
+							break
+						}
+						err = getErr
+						if attempt < 6 {
+							time.Sleep(time.Duration(attempt) * 2000 * time.Millisecond)
+						}
+					}
 				} else {
 					var candidates []api.KwikCandidate
 					for attempt := 1; attempt <= 6; attempt++ {
@@ -564,6 +615,8 @@ func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []f
 				jobReferer := ""
 				if p == "anikoto" {
 					jobReferer = "https://megaplay.buzz/"
+				} else if p == "animeheaven" {
+					jobReferer = "https://animeheaven.me/gate.php"
 				}
 
 				a.dlManager.Submit(dl.Job{

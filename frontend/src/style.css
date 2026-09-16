@@ -368,7 +368,7 @@ button:disabled {
     display: inline-flex;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--glass-border);
-    border-radius: 10px;
+    border-radius: 4px;
     padding: 3px;
     gap: 3px;
     align-items: center;
@@ -382,7 +382,7 @@ button:disabled {
     font-size: 0.85rem;
     font-weight: 500;
     padding: 8px 14px;
-    border-radius: 7px;
+    border-radius: 2px;
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     white-space: nowrap;
@@ -398,6 +398,7 @@ button:disabled {
     background: rgba(255, 255, 255, 0.12);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
     font-weight: 600;
+    border-radius: 2px;
 }
 
 .search-bar input {

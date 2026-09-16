@@ -10,6 +10,10 @@ export function CancelAnimeDownloads(arg1) {
   return window['go']['main']['App']['CancelAnimeDownloads'](arg1);
 }
 
+export function CheckAppUpdate() {
+  return window['go']['main']['App']['CheckAppUpdate']();
+}
+
 export function CheckTrackedUpdatesNow() {
   return window['go']['main']['App']['CheckTrackedUpdatesNow']();
 }
@@ -50,6 +54,10 @@ export function GetTrackedAnime() {
   return window['go']['main']['App']['GetTrackedAnime']();
 }
 
+export function InstallAppUpdate(arg1) {
+  return window['go']['main']['App']['InstallAppUpdate'](arg1);
+}
+
 export function IsAnimeTracked(arg1) {
   return window['go']['main']['App']['IsAnimeTracked'](arg1);
 }
@@ -66,8 +74,8 @@ export function RetryFailed(arg1) {
   return window['go']['main']['App']['RetryFailed'](arg1);
 }
 
-export function SaveConfig(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15) {
-  return window['go']['main']['App']['SaveConfig'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15);
+export function SaveConfig(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16) {
+  return window['go']['main']['App']['SaveConfig'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16);
 }
 
 export function SearchAnime(arg1, arg2) {

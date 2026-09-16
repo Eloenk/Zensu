@@ -19,8 +19,11 @@ import {
     IsAnimeTracked,
     ToggleTrackAnime,
     BatchTrackAnime,
-    CheckTrackedUpdatesNow
+    CheckTrackedUpdatesNow,
+    CheckAppUpdate,
+    InstallAppUpdate
 } from '../wailsjs/go/main/App';
+import { EventsOn } from '../wailsjs/runtime/runtime';
 
 function applyTheme(theme) {
     if (theme === 'solid') {
@@ -87,6 +90,7 @@ const settingsHlsTranscode = document.getElementById('setting-hls-transcode');
 const settingsMinimizeTray = document.getElementById('setting-minimize-tray');
 const settingsBgMonitor = document.getElementById('setting-bg-monitor');
 const settingsAutoDownloadTracked = document.getElementById('setting-auto-download-tracked');
+const settingsAutoCheckUpdates = document.getElementById('setting-auto-check-updates');
 const settingsPollInterval = document.getElementById('setting-poll-interval');
 const saveSettingsBtn = document.getElementById('save-settings-btn');
 const btnBrowseDir = document.getElementById('btn-browse-dir');
@@ -95,7 +99,89 @@ const btnFetchCf = document.getElementById('btn-fetch-cf');
 const btnClearDownloads = document.getElementById('btn-clear-downloads');
 const btnOpenDownloadDir = document.getElementById('btn-open-download-dir');
 const btnOpenDirSettings = document.getElementById('btn-open-dir-settings');
+const btnCheckAppUpdate = document.getElementById('btn-check-app-update');
 const saveStatus = document.getElementById('save-status');
+
+const appUpdateModal = document.getElementById('app-update-modal');
+const appUpdateTitle = document.getElementById('app-update-title');
+const appUpdateSubtitle = document.getElementById('app-update-subtitle');
+const appUpdateNotesContainer = document.getElementById('app-update-notes-container');
+const appUpdateStatus = document.getElementById('app-update-status');
+const appUpdateCloseBtn = document.getElementById('app-update-close-btn');
+const appUpdateCancelBtn = document.getElementById('app-update-cancel-btn');
+const appUpdateConfirmBtn = document.getElementById('app-update-confirm-btn');
+
+let pendingUpdateUrl = '';
+
+async function checkForAppUpdates(manual = false) {
+    if (btnCheckAppUpdate) {
+        btnCheckAppUpdate.disabled = true;
+        btnCheckAppUpdate.textContent = 'Checking...';
+    }
+    try {
+        const update = await CheckAppUpdate();
+        if (update && update.available) {
+            pendingUpdateUrl = update.downloadUrl;
+            if (appUpdateTitle) appUpdateTitle.textContent = `Version ${update.latestVersion} Available!`;
+            if (appUpdateSubtitle) appUpdateSubtitle.textContent = `Current version: v${update.currentVersion}`;
+            if (appUpdateNotesContainer) appUpdateNotesContainer.textContent = update.releaseNotes || 'No release notes provided.';
+            if (appUpdateStatus) appUpdateStatus.style.display = 'none';
+            if (appUpdateConfirmBtn) {
+                appUpdateConfirmBtn.disabled = false;
+                appUpdateConfirmBtn.textContent = 'Download & Install Update';
+            }
+            if (appUpdateModal) appUpdateModal.classList.add('active');
+        } else if (manual) {
+            alert('Zensu is already up to date!');
+        }
+    } catch (err) {
+        console.error('App update check failed:', err);
+        if (manual) {
+            alert(`Failed to check for updates: ${err}`);
+        }
+    } finally {
+        if (btnCheckAppUpdate) {
+            btnCheckAppUpdate.disabled = false;
+            btnCheckAppUpdate.textContent = '🔄 Check for Updates Now';
+        }
+    }
+}
+
+if (btnCheckAppUpdate) {
+    btnCheckAppUpdate.addEventListener('click', () => checkForAppUpdates(true));
+}
+
+if (appUpdateCloseBtn) {
+    appUpdateCloseBtn.addEventListener('click', () => appUpdateModal.classList.remove('active'));
+}
+
+if (appUpdateCancelBtn) {
+    appUpdateCancelBtn.addEventListener('click', () => appUpdateModal.classList.remove('active'));
+}
+
+if (appUpdateConfirmBtn) {
+    appUpdateConfirmBtn.addEventListener('click', async () => {
+        if (!pendingUpdateUrl) return;
+        appUpdateConfirmBtn.disabled = true;
+        appUpdateCancelBtn.disabled = true;
+        if (appUpdateStatus) {
+            appUpdateStatus.style.display = 'block';
+            appUpdateStatus.textContent = 'Downloading update & restarting Zensu...';
+        }
+        try {
+            await InstallAppUpdate(pendingUpdateUrl);
+        } catch (err) {
+            alert(`Failed to install update: ${err}`);
+            appUpdateConfirmBtn.disabled = false;
+            appUpdateCancelBtn.disabled = false;
+            if (appUpdateStatus) appUpdateStatus.style.display = 'none';
+        }
+    });
+}
+
+EventsOn('trigger-app-update-check', () => {
+    checkForAppUpdates(true);
+});
 
 const episodeModal = document.getElementById('episode-modal');
 const modalAnimeTitle = document.getElementById('modal-anime-title');
@@ -182,8 +268,13 @@ async function loadSettings() {
         if (settingsMinimizeTray) settingsMinimizeTray.checked = cfg.minimizeToTray !== false;
         if (settingsBgMonitor) settingsBgMonitor.checked = cfg.enableBackgroundMonitor !== false;
         if (settingsAutoDownloadTracked) settingsAutoDownloadTracked.checked = cfg.autoDownloadTracked !== false;
+        if (settingsAutoCheckUpdates) settingsAutoCheckUpdates.checked = cfg.autoCheckUpdates !== false;
         if (settingsPollInterval) settingsPollInterval.value = String(cfg.pollIntervalMinutes || 30);
         settingsTheme.value = localStorage.getItem('theme') || 'glow';
+
+        if (cfg.autoCheckUpdates !== false) {
+            setTimeout(() => checkForAppUpdates(false), 3000);
+        }
     } catch (err) {
         console.error('Failed to load settings:', err);
     }
@@ -260,6 +351,7 @@ settingsForm.addEventListener('submit', async (e) => {
             settingsMinimizeTray ? settingsMinimizeTray.checked : true,
             settingsBgMonitor ? settingsBgMonitor.checked : true,
             settingsAutoDownloadTracked ? settingsAutoDownloadTracked.checked : true,
+            settingsAutoCheckUpdates ? settingsAutoCheckUpdates.checked : true,
             settingsPollInterval ? parseInt(settingsPollInterval.value, 10) : 30,
             currentAnimeProvider || 'animepahe'
         );
@@ -492,7 +584,7 @@ async function refreshTrackedAnimeList() {
             `;
 
             card.addEventListener('click', () => {
-                openEpisodeModal(item.title, item.slug, item.poster);
+                openEpisodeModal(item.title, item.slug, item.poster, item.provider || 'animepahe');
             });
 
             const untrackBtn = card.querySelector('.btn-untrack-inline');

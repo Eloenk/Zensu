@@ -38,7 +38,7 @@
                 </button>
             </nav>
             <div class="sidebar-footer">
-                v1.4.1
+                v1.4.2
             </div>
         </aside>
 
@@ -54,6 +54,7 @@
                 <div class="search-bar">
                     <div class="provider-toggle-group" id="provider-toggle-group">
                         <button type="button" class="provider-btn active" data-provider="animepahe">AnimePahe</button>
+                        <button type="button" class="provider-btn" data-provider="animeheaven">AnimeHeaven</button>
                         <button type="button" class="provider-btn" data-provider="anikoto">Anikoto TV</button>
                     </div>
                     <input type="text" id="search-input" placeholder="Type anime title..." autocomplete="off">
@@ -232,6 +233,13 @@
                         </label>
                     </div>
 
+                    <div class="settings-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="setting-auto-check-updates">
+                            <span>Automatically Check for Application Updates</span>
+                        </label>
+                    </div>
+
                     <div class="settings-row">
                         <div class="settings-group half">
                             <label for="setting-poll-interval">Background Check Frequency</label>
@@ -241,6 +249,9 @@
                                 <option value="60">Every 1 hour</option>
                                 <option value="120">Every 2 hours</option>
                             </select>
+                        </div>
+                        <div class="settings-group half flex-grow" style="display: flex; align-items: flex-end;">
+                            <button type="button" class="btn-secondary" id="btn-check-app-update" style="width: 100%;">🔄 Check for Updates Now</button>
                         </div>
                     </div>
 
@@ -291,6 +302,28 @@
             </div>
         </div>
     </div>
+
+    <!-- App Self-Updater Modal -->
+    <div class="modal-overlay" id="app-update-modal">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <div class="modal-header-text">
+                    <h2 id="app-update-title">New Version Available!</h2>
+                    <p id="app-update-subtitle">An update for Zensu is ready to download.</p>
+                </div>
+                <button class="modal-close" id="app-update-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="app-update-notes-container" style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; max-height: 180px; overflow-y: auto; font-size: 0.9em; white-space: pre-wrap; color: var(--text-secondary);"></div>
+                <div id="app-update-status" style="margin-top: 10px; font-weight: 500; font-size: 0.9em; display: none; color: var(--accent);">Downloading update...</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="app-update-cancel-btn">Later</button>
+                <button class="btn-primary" id="app-update-confirm-btn">Download & Install Update</button>
+            </div>
+        </div>
+    </div>
+
     <script src="./src/main.js" type="module"></script>
 </body>
 </html>

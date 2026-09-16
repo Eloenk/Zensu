@@ -48,6 +48,7 @@ export namespace config {
 	    enableBackgroundMonitor: boolean;
 	    autoDownloadTracked: boolean;
 	    pollIntervalMinutes: number;
+	    autoCheckUpdates: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -71,6 +72,7 @@ export namespace config {
 	        this.enableBackgroundMonitor = source["enableBackgroundMonitor"];
 	        this.autoDownloadTracked = source["autoDownloadTracked"];
 	        this.pollIntervalMinutes = source["pollIntervalMinutes"];
+	        this.autoCheckUpdates = source["autoCheckUpdates"];
 	    }
 	}
 
@@ -180,6 +182,31 @@ export namespace tracker {
 	        this.broadcastDay = source["broadcastDay"];
 	        this.createdAt = source["createdAt"];
 	        this.lastCheckedAt = source["lastCheckedAt"];
+	    }
+	}
+
+}
+
+export namespace updater {
+	
+	export class UpdateInfo {
+	    available: boolean;
+	    currentVersion: string;
+	    latestVersion: string;
+	    releaseNotes: string;
+	    downloadUrl: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.currentVersion = source["currentVersion"];
+	        this.latestVersion = source["latestVersion"];
+	        this.releaseNotes = source["releaseNotes"];
+	        this.downloadUrl = source["downloadUrl"];
 	    }
 	}
 

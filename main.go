@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"zensu/internal/config"
 	"zensu/internal/logger"
+	"zensu/internal/tray"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -32,6 +33,7 @@ func main() {
 	go func() {
 		<-sigChan
 		logger.Infof("SIGNAL_RECEIVED", "Received termination signal, cleaning up...")
+		tray.Quit()
 		app.shutdown(context.Background())
 		os.Exit(0)
 	}()
@@ -47,7 +49,10 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 20, G: 20, B: 30, A: 255},
 		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
+		OnShutdown: func(ctx context.Context) {
+			tray.Quit()
+			app.shutdown(ctx)
+		},
 		OnBeforeClose: func(ctx context.Context) (prevent bool) {
 			cfg, err := config.Load()
 			if err == nil && cfg.MinimizeToTray {

@@ -5,6 +5,7 @@ go 1.22.0
 require (
 	github.com/bogdanfinn/fhttp v0.5.29
 	github.com/bogdanfinn/tls-client v1.7.9
+	github.com/energye/systray v1.0.3
 	github.com/gorilla/websocket v1.5.3
 	github.com/wailsapp/wails/v2 v2.12.0
 	golang.org/x/sys v0.30.0

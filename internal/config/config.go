@@ -26,6 +26,7 @@ type Config struct {
 	EnableBackgroundMonitor bool   `json:"enableBackgroundMonitor"`
 	AutoDownloadTracked     bool   `json:"autoDownloadTracked"`
 	PollIntervalMinutes     int    `json:"pollIntervalMinutes"`
+	AutoCheckUpdates        bool   `json:"autoCheckUpdates"`
 }
 
 var (
@@ -76,6 +77,7 @@ func Load() (*Config, error) {
 			EnableBackgroundMonitor: true,
 			AutoDownloadTracked:     true,
 			PollIntervalMinutes:     30,
+			AutoCheckUpdates:        true,
 		}
 		if err := cfg.Save(); err != nil {
 			return nil, err

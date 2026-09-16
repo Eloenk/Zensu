@@ -40,6 +40,9 @@ func (j *Job) GetReferer() string {
 		return j.Referer
 	}
 	uLower := strings.ToLower(j.URL)
+	if strings.Contains(uLower, "animeheaven") {
+		return "https://animeheaven.me/gate.php"
+	}
 	if strings.Contains(uLower, "mewstream") || strings.Contains(uLower, "cloudvideo") || strings.Contains(uLower, "megaplay") || strings.Contains(uLower, "anikoto") || strings.Contains(uLower, "lostproject") {
 		return "https://megaplay.buzz/"
 	}

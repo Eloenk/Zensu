@@ -23,3 +23,12 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Settings Save Signature Mismatch:** Aligned frontend `SaveConfig` arguments with backend Go parameters to prevent type unmarshaling errors.
+
+## [1.4.2] - 2026-09-16
+
+### Added
+- **AnimeHeaven (`gate.php`) Subsystem Integration:** Full fast search, episode gate key extraction, direct `.mp4` HTTP file downloading, and multi-stage mirror CDN failover (`cw` -> `ct` -> `ck`).
+- **Rectangular Search Provider Buttons:** Updated search provider selector toggle buttons to clean, crisp rectangular box styling.
+
+### Fixed
+- **Tracked Anime Provider Propagation:** Fixed `openEpisodeModal()` call when clicking tracked cards to explicitly pass stored `item.provider`, preventing provider/slug mismatches and `"Failed to fetch episodes"` errors.
