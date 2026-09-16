@@ -358,14 +358,23 @@ button:disabled {
 }
 
 /* Search view specifically */
+.search-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
 .search-bar {
     display: flex;
     gap: 12px;
     align-items: center;
+    width: 100%;
 }
 
 .provider-toggle-group {
     display: inline-flex;
+    align-self: flex-start;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--glass-border);
     border-radius: 4px;

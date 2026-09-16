@@ -51,20 +51,22 @@
                     <p>Find your favorite anime and begin downloading episodes</p>
                 </div>
                 
-                <div class="search-bar">
+                <div class="search-container">
                     <div class="provider-toggle-group" id="provider-toggle-group">
                         <button type="button" class="provider-btn active" data-provider="animepahe">AnimePahe</button>
                         <button type="button" class="provider-btn" data-provider="animeheaven">AnimeHeaven</button>
                         <button type="button" class="provider-btn" data-provider="anikoto">Anikoto TV</button>
                     </div>
-                    <input type="text" id="search-input" placeholder="Type anime title..." autocomplete="off">
-                    <button id="search-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                        Search
-                    </button>
-                    <button id="btn-track-all" class="btn-secondary" style="display: none;" title="Track all active search results">
-                        🔔 Track All Airing
-                    </button>
+                    <div class="search-bar">
+                        <input type="text" id="search-input" placeholder="Type anime title..." autocomplete="off">
+                        <button id="search-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            Search
+                        </button>
+                        <button id="btn-track-all" class="btn-secondary" style="display: none;" title="Track all active search results">
+                            🔔 Track All Airing
+                        </button>
+                    </div>
                 </div>
 
                 <div class="search-status" id="search-status"></div>
