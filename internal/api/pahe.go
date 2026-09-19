@@ -6,6 +6,9 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
+
+	"zensu/internal/logger"
 )
 
 type SearchResult struct {
@@ -52,11 +55,31 @@ func (c *Client) GetEpisodes(slug string) ([]Episode, error) {
 	page := 1
 
 	for {
-		u := fmt.Sprintf("%s/api?m=release&id=%s&sort=episode_asc&page=%d", c.domain, slug, page)
-		body, err := c.Get(u, nil)
-		if err != nil {
-			return nil, err
+		if page > 1 {
+			time.Sleep(300 * time.Millisecond)
 		}
+
+		u := fmt.Sprintf("%s/api?m=release&id=%s&sort=episode_asc&page=%d", c.domain, slug, page)
+		var body string
+		var err error
+
+		maxAttempts := 5
+		cooldown := 2500 * time.Millisecond
+
+		for attempt := 1; attempt <= maxAttempts; attempt++ {
+			body, err = c.Get(u, nil)
+			if err != nil {
+				if (strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "Too Many Requests")) && attempt < maxAttempts {
+					logger.Warnf("API_PAHE_429", "HTTP 429 rate limit hit fetching page %d for slug %s; waiting %v (attempt %d/%d)", page, slug, cooldown, attempt, maxAttempts)
+					time.Sleep(cooldown)
+					cooldown *= 2
+					continue
+				}
+				return nil, err
+			}
+			break
+		}
+
 		if strings.HasPrefix(strings.TrimSpace(body), "<") {
 			return nil, fmt.Errorf("got HTML instead of JSON — cookies expired")
 		}

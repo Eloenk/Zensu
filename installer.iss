@@ -1,6 +1,6 @@
 [Setup]
 AppName=Zensu
-AppVersion=1.4.2
+AppVersion=1.4.3
 DefaultDirName={localappdata}\Programs\Zensu
 DefaultGroupName=Zensu
 UninstallDisplayIcon={app}\zensu.exe

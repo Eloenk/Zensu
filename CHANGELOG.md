@@ -32,3 +32,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Tracked Anime Provider Propagation:** Fixed `openEpisodeModal()` call when clicking tracked cards to explicitly pass stored `item.provider`, preventing provider/slug mismatches and `"Failed to fetch episodes"` errors.
+
+## [1.4.3] - 2026-09-19
+
+### Fixed
+- **AnimePahe Pagination Rate Limit:** Added 300ms inter-page pacing and exponential backoff retry loop (`2.5s -> 5s -> 10s`) for HTTP 429 rate limit resilience, resolving episode pagination failures for large series (*One Piece*, etc.).
