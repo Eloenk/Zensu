@@ -67,10 +67,28 @@ func CheckUpdate(currentVersion string) (*UpdateInfo, error) {
 	isNewer := isVersionNewer(latestVersion, cleanCurrent)
 
 	downloadURL := ""
+	// 1. Prefer exact GUI binary or setup installer, and explicitly exclude CLI binaries
 	for _, asset := range rel.Assets {
-		if strings.HasSuffix(asset.Name, ".exe") || strings.EqualFold(asset.Name, "zensu.exe") {
+		name := strings.ToLower(asset.Name)
+		if strings.Contains(name, "cli") {
+			continue
+		}
+		if name == "zensu.exe" || name == "zensu-x64.exe" || name == "zensu-setup-x64.exe" || name == "zensu-setup.exe" || name == "zensu-gui.exe" {
 			downloadURL = asset.BrowserDownloadURL
 			break
+		}
+	}
+	// 2. Fallback: select any non-CLI .exe binary
+	if downloadURL == "" {
+		for _, asset := range rel.Assets {
+			name := strings.ToLower(asset.Name)
+			if strings.Contains(name, "cli") {
+				continue
+			}
+			if strings.HasSuffix(name, ".exe") {
+				downloadURL = asset.BrowserDownloadURL
+				break
+			}
 		}
 	}
 
