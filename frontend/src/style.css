@@ -775,7 +775,7 @@ button:disabled {
 .settings-card-header h3 {
     font-size: 0.95rem;
     font-weight: 600;
-    color: var(--accent-cyan, #00f2fe);
+    color: var(--text-primary);
     margin: 0;
     letter-spacing: 0.3px;
 }
