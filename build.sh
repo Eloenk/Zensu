@@ -1,5 +1,5 @@
+#!/bin/bash
 set -e
-
 
 echo "Stopping any running Zensu instances..."
 if command -v taskkill &> /dev/null; then
@@ -12,7 +12,6 @@ if command -v killall &> /dev/null; then
     killall zensu-cli &> /dev/null || true
     killall ffmpeg &> /dev/null || true
 fi
-
 
 echo "Cleaning old build directory and root binary artifacts..."
 rm -rf build/bin/ || true
@@ -52,13 +51,3 @@ GOOS=android GOARCH=arm64 go build -ldflags="-s -w" -o build/bin/cli/zensu-termu
 rm -f zensu.exe zensu-cli.exe 2>/dev/null || true
 
 echo "Build complete!"
-
-# Copy complete binary if running on Windows environment
-INSTALL_DIR="$USERPROFILE/AppData/Local/Programs/Zensu"
-if [ -f "build/bin/zensu.exe" ] && [ -d "$USERPROFILE" ]; then
-    mkdir -p "$INSTALL_DIR" || true
-    cp -f "build/bin/zensu.exe" "$INSTALL_DIR/zensu.exe" 2>/dev/null || true
-    echo "Copied build/bin/zensu.exe to $INSTALL_DIR/zensu.exe"
-fi
-
-rm -f zensu.exe zensu-cli.exe 2>/dev/null || true

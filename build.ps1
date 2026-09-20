@@ -76,20 +76,6 @@ try {
     }
 
     Write-Host "Build complete!" -ForegroundColor Green
-
-    # Automatically copy complete Wails binary to installed program directory
-    $InstallDir = "$env:LOCALAPPDATA\Programs\Zensu"
-    if (Test-Path "build/bin/zensu.exe") {
-        Write-Host "Copying build/bin/zensu.exe to $InstallDir..." -ForegroundColor Cyan
-        if (-not (Test-Path $InstallDir)) {
-            New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-        }
-        Copy-Item -Force "build/bin/zensu.exe" "$InstallDir\zensu.exe"
-        Write-Host "Successfully installed zensu.exe to $InstallDir!" -ForegroundColor Green
-    } else {
-        Write-Host "Error: build/bin/zensu.exe not found!" -ForegroundColor Red
-        exit 1
-    }
 }
 finally {
     # Restore original environment variables
