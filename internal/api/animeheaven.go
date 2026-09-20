@@ -11,10 +11,11 @@ import (
 )
 
 var (
-	ahSearchCardRe  = regexp.MustCompile(`<a class='ac' href='/anime\.php\?([^']+)'>[\s\S]*?<img class='coverimg' src='([^']+)' alt='([^']*)'`)
-	ahEpGateKeyRe   = regexp.MustCompile(`<a class='c' onmouseover='gateh\( "([a-f0-9]+)"\)' onclick='gatea\( "([a-f0-9]+)"\)'[^>]*id ="([a-f0-9]+)"[^>]*href= 'gate.php'[\s\S]*?<div\s+class= '\s*watch2\s+bc\s*'\s*>(\d+(\.\d+)?)</div>`)
-	ahVideoSourceRe = regexp.MustCompile(`<source src='(https://[^']+(?:/video\.mp4|\.m3u8|\.mp4)\?[^']+)'`)
-	ahDirectDownRe  = regexp.MustCompile(`<a href='(https://[^']+(?:/video\.mp4|\.m3u8|\.mp4)\?[^']+&d)'>`)
+	ahSearchCardRe  = regexp.MustCompile(`(?i)<a\s+class=['"]ac['"]\s+href=['"]/anime\.php\?([^'"]+)['"]>[\s\S]*?<img\s+class=['"]coverimg['"]\s+src=['"]([^'"]+)['"]\s+alt=['"]([^'"]*)['"]`)
+	ahEpGateKeyRe   = regexp.MustCompile(`(?i)<a\s+class=['"]c['"][^>]*onmouseover=['"]gateh\(\s*["']([a-f0-9]+)["']\s*\)['"][^>]*>[\s\S]*?<div\s+class=['"]\s*watch2\s+bc\s*['"]\s*>(\d+(\.\d+)?)</div>`)
+	ahVideoSourceRe = regexp.MustCompile(`(?i)<source\s+src=['"](https?://[^'"]+)['"]`)
+	ahDirectDownRe  = regexp.MustCompile(`(?i)<a\s+href=['"](https?://[^'"]+(?:/video\.mp4|\.mp4|\.m3u8)[^'"]*)['"]`)
+	ahFallbackURLRe = regexp.MustCompile(`(?i)https?://[^\s'"<>]+\.(?:mp4|m3u8)[^\s'"<>]*`)
 )
 
 func (c *Client) SearchAnimeHeaven(query string) ([]SearchResult, error) {
@@ -62,11 +63,11 @@ func (c *Client) GetAnimeHeavenEpisodes(slug string) ([]Episode, error) {
 	seen := make(map[float64]bool)
 
 	for _, m := range matches {
-		if len(m) < 5 {
+		if len(m) < 4 {
 			continue
 		}
 		keyHash := strings.TrimSpace(m[1])
-		epVal, err := strconv.ParseFloat(strings.TrimSpace(m[4]), 64)
+		epVal, err := strconv.ParseFloat(strings.TrimSpace(m[2]), 64)
 		if err != nil {
 			continue
 		}
@@ -119,6 +120,16 @@ func (c *Client) GetAnimeHeavenStream(keyHash, slug string) ([]string, string, e
 	for _, m := range sourceMatches {
 		if len(m) > 1 {
 			src := m[1]
+			if !seen[src] {
+				seen[src] = true
+				mirrors = append(mirrors, src)
+			}
+		}
+	}
+
+	if len(mirrors) == 0 {
+		fallbackMatches := ahFallbackURLRe.FindAllString(body, -1)
+		for _, src := range fallbackMatches {
 			if !seen[src] {
 				seen[src] = true
 				mirrors = append(mirrors, src)

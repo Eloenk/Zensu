@@ -454,7 +454,7 @@ func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []f
 		return fmt.Errorf("please configure User-Agent and Cloudflare clearance in Settings first")
 	}
 
-	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.Domain)
+	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.GetProviderDomain(p))
 	if err != nil {
 		logger.Errorf("APP_CLIENT_ERR", "Failed to initialize API client: %v", err)
 		return fmt.Errorf("failed to initialize client; check settings or see henzuku.log")
@@ -489,6 +489,8 @@ func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []f
 		var err error
 		if p == "anikoto" {
 			eps, err = client.GetAnikotoEpisodes(slug)
+		} else if p == "animeheaven" {
+			eps, err = client.GetAnimeHeavenEpisodes(slug)
 		} else {
 			eps, err = client.GetEpisodes(slug)
 		}
