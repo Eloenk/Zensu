@@ -38,7 +38,7 @@
                 </button>
             </nav>
             <div class="sidebar-footer">
-                v1.4.3
+                v1.4.4
             </div>
         </aside>
 
@@ -120,140 +120,173 @@
                 </div>
 
                 <form class="settings-form" id="settings-form">
-                    <div class="settings-group">
-                        <label for="setting-domain">AnimePahe Domain</label>
-                        <input type="text" id="setting-domain" placeholder="https://animepahe.pw">
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="setting-ua">User-Agent</label>
-                        <textarea id="setting-ua" rows="2" placeholder="Mozilla/5.0..."></textarea>
-                    </div>
-
-                    <div class="settings-row">
-                        <div class="settings-group">
-                            <label for="setting-browser">Browser Type</label>
-                            <select id="setting-browser" class="compact-select">
-                                <option value="auto">Auto</option>
-                                <option value="chrome">Chrome</option>
-                                <option value="brave">Brave</option>
-                                <option value="edge">Edge</option>
-                                <option value="chromium">Chromium</option>
-                                <option value="vivaldi">Vivaldi</option>
-                                <option value="opera">Opera</option>
-                            </select>
+                    <!-- Card 1: Download & Media Preferences -->
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <h3>📁 Download & Media</h3>
                         </div>
-                        <div class="settings-group half flex-grow">
-                            <label for="setting-browser-path">Browser Location</label>
+                        <div class="settings-group">
+                            <label for="setting-dir">Download Directory</label>
                             <div class="directory-input-row">
-                                <input type="text" id="setting-browser-path" placeholder="Executable location..." readonly>
-                                <button type="button" class="btn-primary" id="btn-browse-browser-path">Browse</button>
+                                <input type="text" id="setting-dir" placeholder="Select a folder..." readonly>
+                                <button type="button" class="btn-primary" id="btn-browse-dir">Browse</button>
+                                <button type="button" class="btn-secondary" id="btn-open-dir-settings">Open Folder</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-row">
+                            <div class="settings-group half">
+                                <label for="setting-quality">Preferred Quality</label>
+                                <select id="setting-quality" class="compact-select">
+                                    <option value="1080">1080p</option>
+                                    <option value="720">720p</option>
+                                    <option value="480">480p</option>
+                                    <option value="360">360p</option>
+                                </select>
+                            </div>
+                            <div class="settings-group half">
+                                <label for="setting-audio">Preferred Language</label>
+                                <select id="setting-audio" class="compact-select">
+                                    <option value="jpn">Subbed (Japanese)</option>
+                                    <option value="eng">Dubbed (English)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="settings-row">
+                            <div class="settings-group half">
+                                <label for="setting-parallel">Max Parallel Downloads</label>
+                                <select id="setting-parallel" class="compact-select">
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                </select>
+                            </div>
+                            <div class="settings-group half">
+                                <label for="setting-theme">Application Theme</label>
+                                <select id="setting-theme" class="compact-select">
+                                    <option value="glow">Cyberpunk Glow</option>
+                                    <option value="solid">Midnight Solid</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="settings-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="setting-hls-transcode">
+                                <span>Full Video Transcode (Slower, re-encodes video to fix broken or freezing frames)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Anime Tracking & Auto-Sync -->
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <h3>📺 Anime Tracking & Auto-Sync</h3>
+                        </div>
+                        <div class="settings-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="setting-bg-monitor">
+                                <span>Enable Anime Tracking (Monitors airing series in background)</span>
+                            </label>
+                        </div>
+                        <div class="settings-nested-group" id="tracking-nested-options">
+                            <div class="settings-group">
+                                <label class="checkbox-container">
+                                    <input type="checkbox" id="setting-auto-download-tracked">
+                                    <span>Automatically Download New Episodes When Airing</span>
+                                </label>
+                            </div>
+                            <div class="settings-group" style="max-width: 320px;">
+                                <label for="setting-poll-interval">Background Check Frequency</label>
+                                <select id="setting-poll-interval" class="compact-select">
+                                    <option value="15">Every 15 minutes</option>
+                                    <option value="30">Every 30 minutes</option>
+                                    <option value="60">Every 1 hour</option>
+                                    <option value="120">Every 2 hours</option>
+                                </select>
                             </div>
                         </div>
                     </div>
 
-                    <div class="settings-group">
-                        <label for="setting-cf">Cookie</label>
-                        <div class="directory-input-row">
-                            <input type="text" id="setting-cf" placeholder="e.g. 1a2b3c4d5e...">
-                            <button type="button" class="btn-primary" id="btn-fetch-cf" style="white-space: nowrap;">Autofill Cookie</button>
+                    <!-- Card 3: App System & Behavior -->
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <h3>⚙️ System & Behavior</h3>
+                        </div>
+                        <div class="settings-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="setting-minimize-tray">
+                                <span>Minimize to Windows System Tray on Close</span>
+                            </label>
+                        </div>
+                        <div class="settings-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="setting-auto-check-updates">
+                                <span>Automatically Check for Application Updates</span>
+                            </label>
+                        </div>
+                        <div class="settings-group" style="margin-top: 12px;">
+                            <button type="button" class="btn-secondary" id="btn-check-app-update" style="width: auto;">🔄 Check for Updates Now</button>
                         </div>
                     </div>
 
-                    <div class="settings-group">
-                        <label for="setting-dir">Download Directory</label>
-                        <div class="directory-input-row">
-                            <input type="text" id="setting-dir" placeholder="Select a folder..." readonly>
-                            <button type="button" class="btn-primary" id="btn-browse-dir">Browse</button>
-                            <button type="button" class="btn-secondary" id="btn-open-dir-settings">Open Folder</button>
+                    <!-- Card 4: Provider Domains & Solvers -->
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <h3>🌐 Provider Domains & Solvers</h3>
                         </div>
-                    </div>
-
-                    <div class="settings-row">
-                        <div class="settings-group half">
-                            <label for="setting-quality">Preferred Quality</label>
-                            <select id="setting-quality" class="compact-select">
-                                <option value="1080">1080p</option>
-                                <option value="720">720p</option>
-                                <option value="480">480p</option>
-                                <option value="360">360p</option>
-                            </select>
+                        <div class="settings-row">
+                            <div class="settings-group third">
+                                <label for="setting-domain">AnimePahe Domain</label>
+                                <input type="text" id="setting-domain" placeholder="https://animepahe.pw">
+                            </div>
+                            <div class="settings-group third">
+                                <label for="setting-domain-anikoto">Anikoto TV Domain</label>
+                                <input type="text" id="setting-domain-anikoto" placeholder="https://anikototv.to">
+                            </div>
+                            <div class="settings-group third">
+                                <label for="setting-domain-animeheaven">AnimeHeaven Domain</label>
+                                <input type="text" id="setting-domain-animeheaven" placeholder="https://animeheaven.me">
+                            </div>
                         </div>
-                        <div class="settings-group half">
-                            <label for="setting-audio">Preferred Language</label>
-                            <select id="setting-audio" class="compact-select">
-                                <option value="jpn">Subbed (Japanese)</option>
-                                <option value="eng">Dubbed (English)</option>
-                            </select>
+
+                        <div class="settings-row" style="margin-top: 12px;">
+                            <div class="settings-group half">
+                                <label for="setting-browser">Browser Type</label>
+                                <select id="setting-browser" class="compact-select">
+                                    <option value="auto">Auto</option>
+                                    <option value="chrome">Chrome</option>
+                                    <option value="brave">Brave</option>
+                                    <option value="edge">Edge</option>
+                                    <option value="chromium">Chromium</option>
+                                    <option value="vivaldi">Vivaldi</option>
+                                    <option value="opera">Opera</option>
+                                </select>
+                            </div>
+                            <div class="settings-group half flex-grow">
+                                <label for="setting-browser-path">Browser Location</label>
+                                <div class="directory-input-row">
+                                    <input type="text" id="setting-browser-path" placeholder="Executable location..." readonly>
+                                    <button type="button" class="btn-primary" id="btn-browse-browser-path">Browse</button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="settings-row">
-                        <div class="settings-group half">
-                            <label for="setting-parallel">Max Parallel Downloads</label>
-                            <select id="setting-parallel" class="compact-select">
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                                <option value="6">6</option>
-                            </select>
+                        <div class="settings-group" style="margin-top: 12px;">
+                            <label for="setting-ua">User-Agent</label>
+                            <textarea id="setting-ua" rows="2" placeholder="Mozilla/5.0..."></textarea>
                         </div>
-                        <div class="settings-group half">
-                            <label for="setting-theme">Application Theme</label>
-                            <select id="setting-theme" class="compact-select">
-                                <option value="glow">Cyberpunk Glow</option>
-                                <option value="solid">Midnight Solid</option>
-                            </select>
-                        </div>
-                    <div class="settings-group">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="setting-hls-transcode">
-                            <span>Full Video Transcode (Slower, re-encodes video to fix broken or freezing frames)</span>
-                        </label>
-                    </div>
 
-                    <div class="settings-group">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="setting-minimize-tray">
-                            <span>Minimize to Windows System Tray on Close</span>
-                        </label>
-                    </div>
-
-                    <div class="settings-group">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="setting-bg-monitor">
-                            <span>Enable Background Monitor for Airing Anime</span>
-                        </label>
-                    </div>
-
-                    <div class="settings-group">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="setting-auto-download-tracked">
-                            <span>Automatically Download New Episodes When Airing</span>
-                        </label>
-                    </div>
-
-                    <div class="settings-group">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="setting-auto-check-updates">
-                            <span>Automatically Check for Application Updates</span>
-                        </label>
-                    </div>
-
-                    <div class="settings-row">
-                        <div class="settings-group half">
-                            <label for="setting-poll-interval">Background Check Frequency</label>
-                            <select id="setting-poll-interval" class="compact-select">
-                                <option value="15">Every 15 minutes</option>
-                                <option value="30">Every 30 minutes</option>
-                                <option value="60">Every 1 hour</option>
-                                <option value="120">Every 2 hours</option>
-                            </select>
-                        </div>
-                        <div class="settings-group half flex-grow" style="display: flex; align-items: flex-end;">
-                            <button type="button" class="btn-secondary" id="btn-check-app-update" style="width: 100%;">🔄 Check for Updates Now</button>
+                        <div class="settings-group">
+                            <label for="setting-cf">Cloudflare Cookie</label>
+                            <div class="directory-input-row">
+                                <input type="text" id="setting-cf" placeholder="e.g. 1a2b3c4d5e...">
+                                <button type="button" class="btn-primary" id="btn-fetch-cf" style="white-space: nowrap;">Autofill Cookie</button>
+                            </div>
                         </div>
                     </div>
 
@@ -325,6 +358,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script src="./src/main.js" type="module"></script>
 </body>

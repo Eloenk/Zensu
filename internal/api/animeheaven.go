@@ -13,8 +13,8 @@ import (
 var (
 	ahSearchCardRe  = regexp.MustCompile(`<a class='ac' href='/anime\.php\?([^']+)'>[\s\S]*?<img class='coverimg' src='([^']+)' alt='([^']*)'`)
 	ahEpGateKeyRe   = regexp.MustCompile(`<a class='c' onmouseover='gateh\( "([a-f0-9]+)"\)' onclick='gatea\( "([a-f0-9]+)"\)'[^>]*id ="([a-f0-9]+)"[^>]*href= 'gate.php'[\s\S]*?<div\s+class= '\s*watch2\s+bc\s*'\s*>(\d+(\.\d+)?)</div>`)
-	ahVideoSourceRe = regexp.MustCompile(`<source src='(https://[^']+/video\.mp4\?[^']+)' type='video/mp4'`)
-	ahDirectDownRe  = regexp.MustCompile(`<a href='(https://[^']+/video\.mp4\?[^']+&d)'>`)
+	ahVideoSourceRe = regexp.MustCompile(`<source src='(https://[^']+(?:/video\.mp4|\.m3u8|\.mp4)\?[^']+)'`)
+	ahDirectDownRe  = regexp.MustCompile(`<a href='(https://[^']+(?:/video\.mp4|\.m3u8|\.mp4)\?[^']+&d)'>`)
 )
 
 func (c *Client) SearchAnimeHeaven(query string) ([]SearchResult, error) {

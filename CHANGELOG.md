@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.4] - 2026-09-20
+
+### Added
+- **Card-Based Settings UI:** Redesigned Settings panel into 4 clean visual card groups (Download & Media, Anime Tracking, System & Behavior, Provider Domains & Solvers).
+- **Multi-Provider Domain Overrides:** Independent domain configuration inputs for AnimePahe (`https://animepahe.pw`), Anikoto TV (`https://anikototv.to`), and AnimeHeaven (`https://animeheaven.me`).
+- **Glassmorphic Toast Notifications:** Added custom in-app floating toast notifications to replace browser `alert()` dialogs and eliminate `"wails.localhost says"` headers.
+
+### Fixed
+- **AnimeHeaven Download Referer:** Corrected `downloadDirect` to send `Referer: https://animeheaven.me/gate.php` instead of hardcoded `kwik.cx`, fixing direct `.mp4` downloads.
+- **Dynamic Search Status Provider Names:** Updated search status header to display accurate provider names (`Anikoto TV`, `AnimeHeaven`, `AnimePahe`).
+
 ## [1.3.2] - 2026-07-30
 
 ### Added

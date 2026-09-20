@@ -53,6 +53,14 @@ Features native TLS fingerprinting, automated Cloudflare solver, and modular mul
 
 ---
 
+## 📦 Download Releases
+
+Download pre-compiled binaries for Windows, Linux, and Android/Termux directly from the GitHub Releases page:
+
+👉 **[Download Latest Zensu Release](https://github.com/Eloenk/Zensu/releases)**
+
+---
+
 ## 🛠️ Build & Installation
 
 Get Zensu running on your machine with a few terminal commands:

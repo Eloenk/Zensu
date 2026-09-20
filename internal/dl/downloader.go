@@ -448,7 +448,7 @@ func (m *Manager) downloadDirect(ctx context.Context, job Job) error {
 		return err
 	}
 	req.Header.Set("User-Agent", m.ua)
-	req.Header.Set("Referer", "https://kwik.cx/")
+	req.Header.Set("Referer", job.GetReferer())
 
 	headResp, err := m.client.Do(req)
 	var totalBytes int64
@@ -478,7 +478,7 @@ func (m *Manager) downloadDirect(ctx context.Context, job Job) error {
 			return err
 		}
 		dlReq.Header.Set("User-Agent", m.ua)
-		dlReq.Header.Set("Referer", "https://kwik.cx/")
+		dlReq.Header.Set("Referer", job.GetReferer())
 
 		if downloaded > 0 {
 			dlReq.Header.Set("Range", fmt.Sprintf("bytes=%d-", downloaded))

@@ -30,7 +30,7 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-const AppVersion = "1.4.3"
+const AppVersion = "1.4.4"
 
 type App struct {
 	ctx        context.Context
@@ -90,7 +90,7 @@ func (a *App) autoCheckAndResolveCredentials() {
 
 	needsSolve := cfg.UA == "" || cfg.CF == ""
 	if !needsSolve {
-		client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.Domain)
+		client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.GetProviderDomain("animepahe"))
 		if err == nil {
 			if connErr := client.TestConnection(); connErr != nil {
 				logger.Warnf("APP_STARTUP_CONN_FAIL", "Connection test failed: %v", connErr)
@@ -160,7 +160,7 @@ func (a *App) SearchAnime(query string, provider string) ([]AnimeResult, error) 
 		return nil, fmt.Errorf("please configure User-Agent and Cloudflare clearance in Settings first")
 	}
 
-	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.Domain)
+	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.GetProviderDomain(p))
 	if err != nil {
 		logger.Errorf("APP_CLIENT_ERR", "Failed to initialize API client: %v", err)
 		return nil, fmt.Errorf("failed to initialize client; check settings or see henzuku.log")
@@ -221,7 +221,7 @@ func (a *App) GetEpisodes(animeTitle, slug string, provider string) ([]EpisodeIn
 		return nil, fmt.Errorf("please configure User-Agent and Cloudflare clearance in Settings first")
 	}
 
-	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.Domain)
+	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.GetProviderDomain(p))
 	if err != nil {
 		logger.Errorf("APP_CLIENT_ERR", "Failed to initialize API client: %v", err)
 		return nil, fmt.Errorf("failed to initialize client; check settings or see henzuku.log")
@@ -352,7 +352,7 @@ func (a *App) GetDetectedBrowsers() ([]map[string]string, error) {
 	return detected, nil
 }
 
-func (a *App) SaveConfig(newUA, newCF, newDir, newQuality, newAudio, newDomain, browserType, browserPath string, maxParallel int, hlsTranscode, minimizeToTray, enableMonitor, autoDownloadTracked, autoCheckUpdates bool, pollIntervalMinutes int, provider string) error {
+func (a *App) SaveConfig(newUA, newCF, newDir, newQuality, newAudio, newDomain, domainAnikoto, domainAnimeHeaven, browserType, browserPath string, maxParallel int, hlsTranscode, minimizeToTray, enableMonitor, autoDownloadTracked, autoCheckUpdates bool, pollIntervalMinutes int, provider string) error {
 	logger.Infof("APP_SAVE_SETTINGS", "Saving application settings...")
 	cfg, err := config.Load()
 	if err != nil {
@@ -370,6 +370,12 @@ func (a *App) SaveConfig(newUA, newCF, newDir, newQuality, newAudio, newDomain, 
 	cfg.Audio = strings.TrimSpace(newAudio)
 	if newDomain != "" {
 		cfg.Domain = strings.TrimSpace(newDomain)
+	}
+	if domainAnikoto != "" {
+		cfg.DomainAnikoto = strings.TrimSpace(domainAnikoto)
+	}
+	if domainAnimeHeaven != "" {
+		cfg.DomainAnimeHeaven = strings.TrimSpace(domainAnimeHeaven)
 	}
 	cfg.Browser = browserType
 	cfg.BrowserPath = browserPath
@@ -541,7 +547,7 @@ func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []f
 						mirrors, _, getErr := client.GetAnimeHeavenStream(ep.Session, slug)
 						if getErr == nil && len(mirrors) > 0 {
 							dlURL = mirrors[0]
-							isHLS = false
+							isHLS = strings.Contains(dlURL, ".m3u8")
 							err = nil
 							break
 						}

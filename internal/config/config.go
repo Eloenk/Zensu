@@ -18,6 +18,8 @@ type Config struct {
 	Quality                 string `json:"quality"`
 	Audio                   string `json:"audio"`
 	Domain                  string `json:"domain"`
+	DomainAnikoto           string `json:"domainAnikoto"`
+	DomainAnimeHeaven       string `json:"domainAnimeHeaven"`
 	Provider                string `json:"provider"`
 	HlsTranscode            bool   `json:"hlsTranscode"`
 	Browser                 string `json:"browser"`
@@ -138,8 +140,22 @@ func Load() (*Config, error) {
 		cfg.Domain = "https://" + cfg.Domain
 	}
 
+	cfg.DomainAnikoto = strings.TrimSuffix(strings.TrimSpace(cfg.DomainAnikoto), "/")
+	if cfg.DomainAnikoto == "" {
+		cfg.DomainAnikoto = "https://anikototv.to"
+	} else if !strings.HasPrefix(cfg.DomainAnikoto, "http://") && !strings.HasPrefix(cfg.DomainAnikoto, "https://") {
+		cfg.DomainAnikoto = "https://" + cfg.DomainAnikoto
+	}
+
+	cfg.DomainAnimeHeaven = strings.TrimSuffix(strings.TrimSpace(cfg.DomainAnimeHeaven), "/")
+	if cfg.DomainAnimeHeaven == "" {
+		cfg.DomainAnimeHeaven = "https://animeheaven.me"
+	} else if !strings.HasPrefix(cfg.DomainAnimeHeaven, "http://") && !strings.HasPrefix(cfg.DomainAnimeHeaven, "https://") {
+		cfg.DomainAnimeHeaven = "https://" + cfg.DomainAnimeHeaven
+	}
+
 	cfg.Provider = strings.ToLower(strings.TrimSpace(cfg.Provider))
-	if cfg.Provider != "anikoto" {
+	if cfg.Provider != "anikoto" && cfg.Provider != "animeheaven" {
 		cfg.Provider = "animepahe"
 	}
 
@@ -148,6 +164,27 @@ func Load() (*Config, error) {
 	cfgCopy := *loaded
 	configMu.Unlock()
 	return &cfgCopy, nil
+}
+
+func (c *Config) GetProviderDomain(provider string) string {
+	p := strings.ToLower(strings.TrimSpace(provider))
+	switch p {
+	case "anikoto":
+		if c.DomainAnikoto != "" {
+			return c.DomainAnikoto
+		}
+		return "https://anikototv.to"
+	case "animeheaven":
+		if c.DomainAnimeHeaven != "" {
+			return c.DomainAnimeHeaven
+		}
+		return "https://animeheaven.me"
+	default:
+		if c.Domain != "" {
+			return c.Domain
+		}
+		return "https://animepahe.pw"
+	}
 }
 
 func (c *Config) Save() error {

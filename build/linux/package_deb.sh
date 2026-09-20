@@ -16,7 +16,7 @@ mkdir -p "$PKG_DIR/usr/share/pixmaps"
 # Write DEBIAN/control file
 cat <<EOT > "$PKG_DIR/DEBIAN/control"
 Package: zensu
-Version: 1.4.3
+Version: 1.4.4
 Section: utils
 Priority: optional
 Architecture: amd64

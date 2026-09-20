@@ -35,6 +35,54 @@ function applyTheme(theme) {
     }
 }
 
+function cleanErrorMessage(msg) {
+    if (!msg) return '';
+    if (typeof msg !== 'string') msg = String(msg);
+    return msg
+        .replace(/https?:\/\/wails\.localhost[:\d]*/gi, '')
+        .replace(/wails\.localhost\s+says:?/gi, '')
+        .replace(/^Error:\s*/i, '')
+        .trim();
+}
+
+function showToast(message, type = 'error') {
+    const cleaned = cleanErrorMessage(message);
+    if (!cleaned) return;
+
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast-message toast-${type}`;
+
+    let icon = '⚠️';
+    if (type === 'success') icon = '✅';
+    if (type === 'info') icon = 'ℹ️';
+    if (type === 'warning') icon = '⚡';
+
+    toast.innerHTML = `
+        <span>${icon}</span>
+        <div class="toast-content">${cleaned}</div>
+        <button class="toast-close" title="Close">&times;</button>
+    `;
+
+    const closeBtn = toast.querySelector('.toast-close');
+    const dismiss = () => {
+        toast.classList.add('toast-hiding');
+        setTimeout(() => toast.remove(), 300);
+    };
+
+    if (closeBtn) closeBtn.addEventListener('click', dismiss);
+    setTimeout(dismiss, 4500);
+
+    container.appendChild(toast);
+}
+
 // Load and apply initial theme
 const initialTheme = localStorage.getItem('theme') || 'glow';
 applyTheme(initialTheme);
@@ -77,6 +125,9 @@ const btnCheckUpdates = document.getElementById('btn-check-updates');
 
 const settingsForm = document.getElementById('settings-form');
 const settingsDomain = document.getElementById('setting-domain');
+const settingsDomainAnikoto = document.getElementById('setting-domain-anikoto');
+const settingsDomainAnimeHeaven = document.getElementById('setting-domain-animeheaven');
+const trackingNestedOptions = document.getElementById('tracking-nested-options');
 const settingsUa = document.getElementById('setting-ua');
 const settingsCf = document.getElementById('setting-cf');
 const settingsDir = document.getElementById('setting-dir');
@@ -132,12 +183,12 @@ async function checkForAppUpdates(manual = false) {
             }
             if (appUpdateModal) appUpdateModal.classList.add('active');
         } else if (manual) {
-            alert('Zensu is already up to date!');
+            showToast('Zensu is already up to date!', 'info');
         }
     } catch (err) {
         console.error('App update check failed:', err);
         if (manual) {
-            alert(`Failed to check for updates: ${err}`);
+            showToast(`Failed to check for updates: ${err}`, 'error');
         }
     } finally {
         if (btnCheckAppUpdate) {
@@ -171,7 +222,7 @@ if (appUpdateConfirmBtn) {
         try {
             await InstallAppUpdate(pendingUpdateUrl);
         } catch (err) {
-            alert(`Failed to install update: ${err}`);
+            showToast(`Failed to install update: ${err}`, 'error');
             appUpdateConfirmBtn.disabled = false;
             appUpdateCancelBtn.disabled = false;
             if (appUpdateStatus) appUpdateStatus.style.display = 'none';
@@ -230,7 +281,9 @@ tabs.settings.addEventListener('click', () => switchTab('settings'));
 async function loadSettings() {
     try {
         const cfg = await GetConfig();
-        settingsDomain.value = cfg.domain || 'https://animepahe.pw';
+        if (settingsDomain) settingsDomain.value = cfg.domain || 'https://animepahe.pw';
+        if (settingsDomainAnikoto) settingsDomainAnikoto.value = cfg.domainAnikoto || 'https://anikototv.to';
+        if (settingsDomainAnimeHeaven) settingsDomainAnimeHeaven.value = cfg.domainAnimeHeaven || 'https://animeheaven.me';
         settingsUa.value = cfg.ua || '';
         settingsCf.value = cfg.cf || '';
         setProvider(cfg.provider || 'animepahe', false);
@@ -266,7 +319,10 @@ async function loadSettings() {
         settingsParallel.value = String(cfg.maxParallel || 3);
         if (settingsHlsTranscode) settingsHlsTranscode.checked = cfg.hlsTranscode || false;
         if (settingsMinimizeTray) settingsMinimizeTray.checked = cfg.minimizeToTray !== false;
-        if (settingsBgMonitor) settingsBgMonitor.checked = cfg.enableBackgroundMonitor !== false;
+        if (settingsBgMonitor) {
+            settingsBgMonitor.checked = cfg.enableBackgroundMonitor !== false;
+            updateTrackingNestedState();
+        }
         if (settingsAutoDownloadTracked) settingsAutoDownloadTracked.checked = cfg.autoDownloadTracked !== false;
         if (settingsAutoCheckUpdates) settingsAutoCheckUpdates.checked = cfg.autoCheckUpdates !== false;
         if (settingsPollInterval) settingsPollInterval.value = String(cfg.pollIntervalMinutes || 30);
@@ -278,6 +334,19 @@ async function loadSettings() {
     } catch (err) {
         console.error('Failed to load settings:', err);
     }
+}
+
+function updateTrackingNestedState() {
+    if (!trackingNestedOptions || !settingsBgMonitor) return;
+    if (settingsBgMonitor.checked) {
+        trackingNestedOptions.classList.remove('disabled');
+    } else {
+        trackingNestedOptions.classList.add('disabled');
+    }
+}
+
+if (settingsBgMonitor) {
+    settingsBgMonitor.addEventListener('change', updateTrackingNestedState);
 }
 
 btnBrowseDir.addEventListener('click', async () => {
@@ -324,7 +393,7 @@ btnFetchCf.addEventListener('click', async () => {
             throw new Error('Retrieved credentials were empty. Make sure you solved the Cloudflare challenge if prompted.');
         }
     } catch (err) {
-        alert(`Failed to fetch credentials: ${err}`);
+        showToast(`Failed to fetch credentials: ${err}`, 'error');
         btnFetchCf.disabled = false;
         btnFetchCf.textContent = originalText;
         btnFetchCf.style.border = '';
@@ -343,7 +412,9 @@ settingsForm.addEventListener('submit', async (e) => {
             settingsDir.value.trim(),
             settingsQuality.value,
             settingsAudio.value,
-            settingsDomain.value.trim(),
+            settingsDomain ? settingsDomain.value.trim() : 'https://animepahe.pw',
+            settingsDomainAnikoto ? settingsDomainAnikoto.value.trim() : 'https://anikototv.to',
+            settingsDomainAnimeHeaven ? settingsDomainAnimeHeaven.value.trim() : 'https://animeheaven.me',
             settingsBrowser.value,
             settingsBrowserPath.value.trim(),
             parseInt(settingsParallel.value, 10),
@@ -398,6 +469,14 @@ providerBtns.forEach(btn => {
     });
 });
 
+function getProviderDisplayName(provider) {
+    const p = (provider || '').toLowerCase();
+    if (p === 'anikoto') return 'Anikoto TV';
+    if (p === 'animeheaven') return 'AnimeHeaven';
+    if (p === 'animepahe') return 'AnimePahe';
+    return provider ? (provider.charAt(0).toUpperCase() + provider.slice(1)) : 'AnimePahe';
+}
+
 // ----------------------------------------------------
 // Search Handling
 // ----------------------------------------------------
@@ -408,7 +487,7 @@ async function performSearch() {
     const provider = currentAnimeProvider || 'animepahe';
     currentAnimeProvider = provider;
 
-    searchStatus.textContent = `Searching ${provider === 'anikoto' ? 'Anikoto TV' : 'AnimePahe'}...`;
+    searchStatus.textContent = `Searching ${getProviderDisplayName(provider)}...`;
     searchResults.innerHTML = '';
     if (btnTrackAll) btnTrackAll.style.display = 'none';
     currentSearchResults = [];
@@ -416,7 +495,7 @@ async function performSearch() {
     try {
         const results = await SearchAnime(q, provider);
         currentSearchResults = results || [];
-        searchStatus.textContent = `Found ${results.length} result(s) on ${provider === 'anikoto' ? 'Anikoto TV' : 'AnimePahe'}`;
+        searchStatus.textContent = `Found ${results.length} result(s) on ${getProviderDisplayName(provider)}`;
         
         if (results.length === 0) {
             searchResults.innerHTML = '<div class="no-results">No anime found matching your query.</div>';
@@ -502,7 +581,7 @@ if (btnTrackAll) {
                 btnTrackAll.textContent = origText;
             }, 3000);
         } catch (err) {
-            alert(`Batch track failed: ${err}`);
+            showToast(`Batch track failed: ${err}`, 'error');
             btnTrackAll.disabled = false;
             btnTrackAll.textContent = origText;
         }
@@ -595,7 +674,7 @@ async function refreshTrackedAnimeList() {
                         await ToggleTrackAnime(item.title, item.slug, item.poster);
                         refreshTrackedAnimeList();
                     } catch (err) {
-                        alert(`Failed to untrack: ${err}`);
+                        showToast(`Failed to untrack: ${err}`, 'error');
                     }
                 });
             }
@@ -637,7 +716,7 @@ if (btnCheckUpdates) {
                 btnCheckUpdates.textContent = origText;
             }, 2000);
         } catch (err) {
-            alert(`Check failed: ${err}`);
+            showToast(`Check failed: ${err}`, 'error');
             btnCheckUpdates.disabled = false;
             btnCheckUpdates.textContent = origText;
         }
@@ -652,7 +731,7 @@ if (modalTrackBtn) {
             updateModalTrackBtnState();
             refreshTrackedAnimeList();
         } catch (err) {
-            alert(`Failed to toggle tracking: ${err}`);
+            showToast(`Failed to toggle tracking: ${err}`, 'error');
         }
     });
 }
@@ -879,7 +958,7 @@ modalDownloadBtn.addEventListener('click', async () => {
         closeEpisodeModal();
         switchTab('downloads');
     } catch (err) {
-        alert(`Failed to start download: ${err}`);
+        showToast(`Failed to start download: ${err}`, 'error');
     }
 });
 
