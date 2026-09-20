@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	ahSearchCardRe  = regexp.MustCompile(`(?i)<a\s+class=['"]ac['"]\s+href=['"]/anime\.php\?([^'"]+)['"]>[\s\S]*?<img\s+class=['"]coverimg['"]\s+src=['"]([^'"]+)['"]\s+alt=['"]([^'"]*)['"]`)
-	ahEpGateKeyRe   = regexp.MustCompile(`(?i)<a\s+class=['"]c['"][^>]*onmouseover=['"]gateh\(\s*["']([a-f0-9]+)["']\s*\)['"][^>]*>[\s\S]*?<div\s+class=['"]\s*watch2\s+bc\s*['"]\s*>(\d+(\.\d+)?)</div>`)
-	ahVideoSourceRe = regexp.MustCompile(`(?i)<source\s+src=['"](https?://[^'"]+)['"]`)
-	ahDirectDownRe  = regexp.MustCompile(`(?i)<a\s+href=['"](https?://[^'"]+(?:/video\.mp4|\.mp4|\.m3u8)[^'"]*)['"]`)
+	ahSearchCardRe  = regexp.MustCompile(`(?i)<a\s+class=\s*['"]ac['"]\s+href=\s*['"]/anime\.php\?([^'"]+)['"]>[\s\S]*?<img\s+class=\s*['"]coverimg['"]\s+src=\s*['"]([^'"]+)['"]\s+alt=\s*['"]([^'"]*)['"]`)
+	ahEpGateKeyRe   = regexp.MustCompile(`(?i)<a\s+class=\s*['"]c['"][^>]*onmouseover=\s*['"]gateh\(\s*["']([a-f0-9]+)["']\s*\)['"][^>]*>[\s\S]*?<div\s+class=\s*['"]\s*watch2\s+bc\s*['"]\s*>(\d+(\.\d+)?)</div>`)
+	ahVideoSourceRe = regexp.MustCompile(`(?i)<source\s+src=\s*['"](https?://[^'"]+)['"]`)
+	ahDirectDownRe  = regexp.MustCompile(`(?i)<a\s+href=\s*['"](https?://[^'"]+(?:/video\.mp4|\.mp4|\.m3u8)[^'"]*)['"]`)
 	ahFallbackURLRe = regexp.MustCompile(`(?i)https?://[^\s'"<>]+\.(?:mp4|m3u8)[^\s'"<>]*`)
 )
 
@@ -51,7 +51,7 @@ func (c *Client) SearchAnimeHeaven(query string) ([]SearchResult, error) {
 }
 
 func (c *Client) GetAnimeHeavenEpisodes(slug string) ([]Episode, error) {
-	u := fmt.Sprintf("https://animeheaven.me/anime.php?%s", url.QueryEscape(slug))
+	u := fmt.Sprintf("https://animeheaven.me/anime.php?%s", slug)
 	body, err := c.Get(u, nil)
 	if err != nil {
 		logger.Errorf("AH_EPISODES_ERR", "Failed fetching AnimeHeaven anime page %s: %v", slug, err)
