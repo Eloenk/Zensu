@@ -9,9 +9,15 @@ Stop-Process -Name "zensu" -Force -ErrorAction SilentlyContinue
 Stop-Process -Name "zensu-cli" -Force -ErrorAction SilentlyContinue
 Stop-Process -Name "ffmpeg" -Force -ErrorAction SilentlyContinue
 
-Write-Host "Cleaning old build directory..." -ForegroundColor Cyan
+Write-Host "Cleaning old build directory and root binary artifacts..." -ForegroundColor Cyan
 if (Test-Path "build/bin") {
     Remove-Item -Recurse -Force "build/bin" -ErrorAction SilentlyContinue
+}
+if (Test-Path "zensu.exe") {
+    Remove-Item -Force "zensu.exe" -ErrorAction SilentlyContinue
+}
+if (Test-Path "zensu-cli.exe") {
+    Remove-Item -Force "zensu-cli.exe" -ErrorAction SilentlyContinue
 }
 
 # Determine wails executable path
@@ -62,10 +68,38 @@ try {
     go build -ldflags="-s -w" -o build/bin/cli/zensu-termux ./cmd/
     if ($LASTEXITCODE -ne 0) { throw "Android/Termux CLI build failed" }
 
+    if (Test-Path "zensu.exe") {
+        Remove-Item -Force "zensu.exe" -ErrorAction SilentlyContinue
+    }
+    if (Test-Path "zensu-cli.exe") {
+        Remove-Item -Force "zensu-cli.exe" -ErrorAction SilentlyContinue
+    }
+
     Write-Host "Build complete!" -ForegroundColor Green
+
+    # Automatically copy complete Wails binary to installed program directory
+    $InstallDir = "$env:LOCALAPPDATA\Programs\Zensu"
+    if (Test-Path "build/bin/zensu.exe") {
+        Write-Host "Copying build/bin/zensu.exe to $InstallDir..." -ForegroundColor Cyan
+        if (-not (Test-Path $InstallDir)) {
+            New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+        }
+        Copy-Item -Force "build/bin/zensu.exe" "$InstallDir\zensu.exe"
+        Write-Host "Successfully installed zensu.exe to $InstallDir!" -ForegroundColor Green
+    } else {
+        Write-Host "Error: build/bin/zensu.exe not found!" -ForegroundColor Red
+        exit 1
+    }
 }
 finally {
     # Restore original environment variables
     $env:GOOS = $oldGoos
     $env:GOARCH = $oldGoarch
+
+    if (Test-Path "zensu.exe") {
+        Remove-Item -Force "zensu.exe" -ErrorAction SilentlyContinue
+    }
+    if (Test-Path "zensu-cli.exe") {
+        Remove-Item -Force "zensu-cli.exe" -ErrorAction SilentlyContinue
+    }
 }

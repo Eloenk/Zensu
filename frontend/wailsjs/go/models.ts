@@ -40,6 +40,8 @@ export namespace config {
 	    quality: string;
 	    audio: string;
 	    domain: string;
+	    domainAnikoto: string;
+	    domainAnimeHeaven: string;
 	    provider: string;
 	    hlsTranscode: boolean;
 	    browser: string;
@@ -64,6 +66,8 @@ export namespace config {
 	        this.quality = source["quality"];
 	        this.audio = source["audio"];
 	        this.domain = source["domain"];
+	        this.domainAnikoto = source["domainAnikoto"];
+	        this.domainAnimeHeaven = source["domainAnimeHeaven"];
 	        this.provider = source["provider"];
 	        this.hlsTranscode = source["hlsTranscode"];
 	        this.browser = source["browser"];

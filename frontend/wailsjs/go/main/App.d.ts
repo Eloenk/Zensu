@@ -43,7 +43,7 @@ export function OpenDownloadFolder():Promise<void>;
 
 export function RetryFailed(arg1:string):Promise<void>;
 
-export function SaveConfig(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string,arg8:string,arg9:number,arg10:boolean,arg11:boolean,arg12:boolean,arg13:boolean,arg14:boolean,arg15:number,arg16:string):Promise<void>;
+export function SaveConfig(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string,arg8:string,arg9:string,arg10:string,arg11:number,arg12:boolean,arg13:boolean,arg14:boolean,arg15:boolean,arg16:boolean,arg17:number,arg18:string):Promise<void>;
 
 export function SearchAnime(arg1:string,arg2:string):Promise<Array<main.AnimeResult>>;
 
