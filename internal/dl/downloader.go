@@ -451,10 +451,32 @@ func (m *Manager) RunAll(jobs <-chan Job, total int) <-chan Result {
 	return results
 }
 
+func ensureOutputDir(outputPath string) (string, error) {
+	dir := filepath.Dir(outputPath)
+	if err := os.MkdirAll(dir, 0755); err == nil {
+		return outputPath, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed creating download directory %s", dir)
+	}
+	fallbackBase := filepath.Join(home, "Videos", "Anime")
+	relDir := filepath.Base(dir)
+	fallbackDir := filepath.Join(fallbackBase, relDir)
+	if err := os.MkdirAll(fallbackDir, 0755); err != nil {
+		return "", fmt.Errorf("failed creating fallback directory %s: %w", fallbackDir, err)
+	}
+	logger.Warnf("DL_DIR_FALLBACK", "Configured download directory %s inaccessible; using fallback %s", dir, fallbackDir)
+	return filepath.Join(fallbackDir, filepath.Base(outputPath)), nil
+}
+
 func (m *Manager) downloadDirect(ctx context.Context, job Job) error {
-	if err := os.MkdirAll(filepath.Dir(job.OutputPath), 0755); err != nil {
+	validOutputPath, err := ensureOutputDir(job.OutputPath)
+	if err != nil {
 		return err
 	}
+	job.OutputPath = validOutputPath
 
 	tmpPath := job.OutputPath + ".tmp"
 
@@ -739,10 +761,12 @@ func (m *Manager) downloadHLS(ctx context.Context, job Job) error {
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(job.OutputPath), 0755); err != nil {
+	validOutputPath, err := ensureOutputDir(job.OutputPath)
+	if err != nil {
 		logger.Errorf("DL_HLS_DIR_ERR", "Failed creating directory: %v", err)
 		return err
 	}
+	job.OutputPath = validOutputPath
 
 	ua := m.ua
 	if ua == "" {

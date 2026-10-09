@@ -106,6 +106,13 @@ func Load() (*Config, error) {
 
 	if cfg.DownloadDir == "" {
 		cfg.DownloadDir = defaultDownloadDir()
+	} else {
+		vol := filepath.VolumeName(cfg.DownloadDir)
+		if vol != "" {
+			if _, err := os.Stat(vol + `\`); err != nil {
+				cfg.DownloadDir = defaultDownloadDir()
+			}
+		}
 	}
 
 	if cfg.MaxParallel <= 0 {
