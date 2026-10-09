@@ -273,8 +273,151 @@ func (a *App) GetEpisodes(animeTitle, slug string, provider string) ([]EpisodeIn
 	return out, nil
 }
 
+type animeTitleInfo struct {
+	cleanTitle string
+	season     int
+	part       int
+}
+
+func parseAnimeTitleInfo(title string) animeTitleInfo {
+	lower := strings.ToLower(title)
+
+	season := 1
+	seasonRe := regexp.MustCompile(`(?i)(?:season\s*(\d+)|s(\d{1,2})|\b(\d+)(?:st|nd|rd|th)\s*season)`)
+	if m := seasonRe.FindStringSubmatch(lower); len(m) > 0 {
+		for i := 1; i < len(m); i++ {
+			if m[i] != "" {
+				if val, err := strconv.Atoi(m[i]); err == nil && val > 0 {
+					season = val
+					break
+				}
+			}
+		}
+	} else {
+		romanRe := regexp.MustCompile(`(?i)\b(?:season\s*)?(ii|iii|iv|v|vi)\b`)
+		if rm := romanRe.FindStringSubmatch(lower); len(rm) > 1 {
+			switch strings.ToLower(rm[1]) {
+			case "ii":
+				season = 2
+			case "iii":
+				season = 3
+			case "iv":
+				season = 4
+			case "v":
+				season = 5
+			case "vi":
+				season = 6
+			}
+		}
+	}
+
+	part := 0
+	partRe := regexp.MustCompile(`(?i)(?:part\s*(\d+)|cour\s*(\d+))`)
+	if m := partRe.FindStringSubmatch(lower); len(m) > 0 {
+		for i := 1; i < len(m); i++ {
+			if m[i] != "" {
+				if val, err := strconv.Atoi(m[i]); err == nil && val > 0 {
+					part = val
+					break
+				}
+			}
+		}
+	}
+
+	cleaned := seasonRe.ReplaceAllString(lower, " ")
+	cleaned = partRe.ReplaceAllString(cleaned, " ")
+	cleaned = regexp.MustCompile(`(?i)\b(ii|iii|iv|v|vi)\b`).ReplaceAllString(cleaned, " ")
+	cleaned = sanitizeName(cleaned)
+
+	return animeTitleInfo{
+		cleanTitle: cleaned,
+		season:     season,
+		part:       part,
+	}
+}
+
+func isMatchingAnime(targetTitleInfo animeTitleInfo, candidateName string) bool {
+	candInfo := parseAnimeTitleInfo(candidateName)
+
+	if targetTitleInfo.season != candInfo.season {
+		return false
+	}
+
+	if targetTitleInfo.part != 0 && candInfo.part != 0 && targetTitleInfo.part != candInfo.part {
+		return false
+	}
+
+	targetWords := strings.Fields(targetTitleInfo.cleanTitle)
+	if len(targetWords) == 0 {
+		return true
+	}
+
+	var significantTarget []string
+	stopWords := map[string]bool{"the": true, "a": true, "an": true, "of": true, "in": true, "to": true, "and": true, "no": true}
+	for _, w := range targetWords {
+		w = strings.ToLower(w)
+		if len(w) >= 3 && !stopWords[w] {
+			significantTarget = append(significantTarget, w)
+		}
+	}
+
+	if len(significantTarget) == 0 {
+		significantTarget = targetWords
+	}
+
+	candText := strings.ToLower(candInfo.cleanTitle)
+	matchedCount := 0
+	for _, tw := range significantTarget {
+		if strings.Contains(candText, tw) {
+			matchedCount++
+		}
+	}
+
+	return float64(matchedCount)/float64(len(significantTarget)) >= 0.6
+}
+
+func extractEpisodeNumbers(filename string) []float64 {
+	nameWithoutExt := filename
+	if ext := filepath.Ext(filename); ext != "" {
+		nameWithoutExt = filename[:len(filename)-len(ext)]
+	}
+
+	qualityRe := regexp.MustCompile(`(?i)\[?(?:1080p|720p|480p|360p|2160p|4k|8k|x264|x265|h264|h265|hevc|aac|dts|flac|10bit|8bit|web-dl|webrip|hdtv|bdrip|bluray)\]?`)
+	cleaned := qualityRe.ReplaceAllString(nameWithoutExt, " ")
+
+	seasonRe := regexp.MustCompile(`(?i)(?:season\s*\d+|s\d{1,2}|\b\d+(?:st|nd|rd|th)\s*season|\bpart\s*\d+|\bcour\s*\d+|\b(?:ii|iii|iv|v|vi)\b)`)
+	cleaned = seasonRe.ReplaceAllString(cleaned, " ")
+
+	var eps []float64
+
+	explicitEpRe := regexp.MustCompile(`(?i)(?:^|[\s_\-\.\(\[])(?:E|Ep|Episode|#)\s*(\d+(?:\.\d+)?)`)
+	matches := explicitEpRe.FindAllStringSubmatch(cleaned, -1)
+	for _, m := range matches {
+		if len(m) > 1 {
+			if val, err := strconv.ParseFloat(m[1], 64); err == nil && val > 0 && val < 5000 {
+				eps = append(eps, val)
+			}
+		}
+	}
+
+	if len(eps) == 0 {
+		standaloneEpRe := regexp.MustCompile(`(?i)(?:^|[\s_\-\(\[])(?:-\s*)?(\d{1,4}(?:\.\d+)?)(?:[\s_\-\)\.]|$)`)
+		matches = standaloneEpRe.FindAllStringSubmatch(cleaned, -1)
+		for _, m := range matches {
+			if len(m) > 1 {
+				if val, err := strconv.ParseFloat(m[1], 64); err == nil && val > 0 && val < 5000 {
+					eps = append(eps, val)
+				}
+			}
+		}
+	}
+
+	return eps
+}
+
 func scanExistingEpisodes(downloadDir, animeTitle string) map[float64]bool {
 	existingEps := make(map[float64]bool)
+	targetInfo := parseAnimeTitleInfo(animeTitle)
 	sanitizedTitle := sanitizeName(animeTitle)
 
 	dirsToCheck := []string{
@@ -290,26 +433,15 @@ func scanExistingEpisodes(downloadDir, animeTitle string) map[float64]bool {
 			filepath.Join(defaultDir, animeTitle),
 			defaultDir,
 		)
+
 		for _, rootDir := range []string{downloadDir, defaultDir} {
 			if rootDir == "" {
 				continue
 			}
 			if subEntries, err := os.ReadDir(rootDir); err == nil {
-				lowerTitle := strings.ToLower(sanitizedTitle)
-				words := strings.Fields(lowerTitle)
 				for _, sub := range subEntries {
 					if sub.IsDir() {
-						subLower := strings.ToLower(sub.Name())
-						match := strings.Contains(subLower, lowerTitle)
-						if !match && len(words) > 0 {
-							for _, w := range words {
-								if len(w) >= 3 && strings.Contains(subLower, w) {
-									match = true
-									break
-								}
-							}
-						}
-						if match {
+						if isMatchingAnime(targetInfo, sub.Name()) {
 							dirsToCheck = append(dirsToCheck, filepath.Join(rootDir, sub.Name()))
 						}
 					}
@@ -317,8 +449,6 @@ func scanExistingEpisodes(downloadDir, animeTitle string) map[float64]bool {
 			}
 		}
 	}
-
-	epNumRe := regexp.MustCompile(`(?i)(?:^|[\s_\-\.\(\[])(?:E|Ep|Episode|#)?\s*(\d+(?:\.\d+)?)(?:v\d+)?(?:[\s_\-\.\)\]]|$)`)
 
 	visitedDirs := make(map[string]bool)
 	for _, dir := range dirsToCheck {
@@ -330,6 +460,13 @@ func scanExistingEpisodes(downloadDir, animeTitle string) map[float64]bool {
 			continue
 		}
 		visitedDirs[dir] = true
+
+		dirName := filepath.Base(dir)
+		if dir != downloadDir && !strings.HasSuffix(dir, "Anime") {
+			if !isMatchingAnime(targetInfo, dirName) {
+				continue
+			}
+		}
 
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -347,32 +484,14 @@ func scanExistingEpisodes(downloadDir, animeTitle string) map[float64]bool {
 			}
 
 			if dir == downloadDir || strings.HasSuffix(dir, "Anime") {
-				lowerName := strings.ToLower(name)
-				lowerTitle := strings.ToLower(sanitizedTitle)
-				words := strings.Fields(lowerTitle)
-				if len(words) > 0 {
-					matchedWord := false
-					for _, w := range words {
-						if len(w) >= 3 && strings.Contains(lowerName, w) {
-							matchedWord = true
-							break
-						}
-					}
-					if !matchedWord && !strings.Contains(lowerName, lowerTitle) && !strings.Contains(lowerName, strings.ToLower(animeTitle)) {
-						if len(words) > 0 && !strings.Contains(lowerName, words[0]) {
-							continue
-						}
-					}
+				if !isMatchingAnime(targetInfo, name) {
+					continue
 				}
 			}
 
-			matches := epNumRe.FindAllStringSubmatch(name, -1)
-			for _, m := range matches {
-				if len(m) > 1 {
-					if val, err := strconv.ParseFloat(m[1], 64); err == nil && val > 0 && val < 5000 {
-						existingEps[val] = true
-					}
-				}
+			epNums := extractEpisodeNumbers(name)
+			for _, ep := range epNums {
+				existingEps[ep] = true
 			}
 		}
 	}
