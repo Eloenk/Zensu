@@ -15,9 +15,10 @@ type TrackedAnime struct {
 	Title            string  `json:"title"`
 	Slug             string  `json:"slug"`
 	Poster           string  `json:"poster"`
+	Provider         string  `json:"provider"`
 	LastDownloadedEp float64 `json:"lastDownloadedEp"`
 	TotalEpisodes    int     `json:"totalEpisodes"`
-	AiringStatus     string  `json:"airingStatus"` // RELEASING, FINISHED, UNKNOWN
+	AiringStatus     string  `json:"airingStatus"`
 	AutoDownload     bool    `json:"autoDownload"`
 	NextEpisodeNum   int     `json:"nextEpisodeNum"`
 	NextAiringAt     int64   `json:"nextAiringAt"`
@@ -28,8 +29,8 @@ type TrackedAnime struct {
 }
 
 type Manager struct {
-	mu      sync.RWMutex
-	items   map[string]*TrackedAnime
+	mu       sync.RWMutex
+	items    map[string]*TrackedAnime
 	filePath string
 }
 
@@ -62,6 +63,9 @@ func (m *Manager) load() {
 	var list []*TrackedAnime
 	if err := json.Unmarshal(data, &list); err == nil {
 		for _, item := range list {
+			if item.Provider == "" {
+				item.Provider = "animepahe"
+			}
 			m.items[item.Title] = item
 		}
 		logger.Infof("TRACKER_LOADED", "Loaded %d tracked anime from disk", len(m.items))
@@ -103,7 +107,7 @@ func (m *Manager) IsTracked(title string) bool {
 	return ok
 }
 
-func (m *Manager) ToggleTrack(title, slug, poster string) (bool, error) {
+func (m *Manager) ToggleTrack(title, slug, poster, provider string) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -116,7 +120,10 @@ func (m *Manager) ToggleTrack(title, slug, poster string) (bool, error) {
 		return false, nil
 	}
 
-	// Fetch AniList/Jikan metadata in background or inline
+	if provider == "" {
+		provider = "animepahe"
+	}
+
 	status := string(api.StatusReleasing)
 	totalEps := 0
 	nextEp := 0
@@ -138,6 +145,7 @@ func (m *Manager) ToggleTrack(title, slug, poster string) (bool, error) {
 		Title:            title,
 		Slug:             slug,
 		Poster:           poster,
+		Provider:         provider,
 		LastDownloadedEp: 0,
 		TotalEpisodes:    totalEps,
 		AiringStatus:     status,
@@ -150,7 +158,7 @@ func (m *Manager) ToggleTrack(title, slug, poster string) (bool, error) {
 		LastCheckedAt:    time.Now().Format(time.RFC3339),
 	}
 	m.items[title] = item
-	logger.Infof("TRACKER_TRACK", "Tracked new anime: %q (status: %s score: %.2f)", title, status, score)
+	logger.Infof("TRACKER_TRACK", "Tracked new anime: %q (provider: %s status: %s score: %.2f)", title, provider, status, score)
 
 	if err := m.saveLocked(); err != nil {
 		return false, err
@@ -165,10 +173,15 @@ func (m *Manager) BatchTrack(shows []TrackedAnime) (int, error) {
 	addedCount := 0
 	for _, show := range shows {
 		if _, exists := m.items[show.Title]; !exists {
+			prov := show.Provider
+			if prov == "" {
+				prov = "animepahe"
+			}
 			item := &TrackedAnime{
 				Title:            show.Title,
 				Slug:             show.Slug,
 				Poster:           show.Poster,
+				Provider:         prov,
 				LastDownloadedEp: 0,
 				TotalEpisodes:    show.TotalEpisodes,
 				AiringStatus:     show.AiringStatus,

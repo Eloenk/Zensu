@@ -30,7 +30,7 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-const AppVersion = "1.4.4"
+const AppVersion = "1.5.0"
 
 type App struct {
 	ctx        context.Context
@@ -210,6 +210,14 @@ func (a *App) GetEpisodes(animeTitle, slug string, provider string) ([]EpisodeIn
 	}
 
 	p := strings.ToLower(strings.TrimSpace(provider))
+	if p == "" && a.trackerMgr != nil {
+		for _, item := range a.trackerMgr.GetList() {
+			if item.Title == animeTitle && item.Provider != "" {
+				p = item.Provider
+				break
+			}
+		}
+	}
 	if p == "" {
 		p = cfg.Provider
 	}
@@ -234,6 +242,17 @@ func (a *App) GetEpisodes(animeTitle, slug string, provider string) ([]EpisodeIn
 		eps, err = client.GetAnimeHeavenEpisodes(slug)
 	} else {
 		eps, err = client.GetEpisodes(slug)
+	}
+
+	// Auto-retry once if Cloudflare clearance cookie expired
+	if err != nil && p == "animepahe" && (strings.Contains(err.Error(), "cookies expired") || strings.Contains(err.Error(), "HTML")) {
+		logger.Warnf("APP_EPISODES_CF_RETRY", "Cloudflare cookie expired for %s; attempting automatic credential resolution...", animeTitle)
+		a.autoCheckAndResolveCredentials()
+		if cfgRetry, errRetry := config.Load(); errRetry == nil {
+			if clientRetry, errClient := api.NewClient(cfgRetry.UA, cfgRetry.Cookies, cfgRetry.GetProviderDomain(p)); errClient == nil {
+				eps, err = clientRetry.GetEpisodes(slug)
+			}
+		}
 	}
 
 	if err != nil {
@@ -758,11 +777,11 @@ func (a *App) IsAnimeTracked(title string) bool {
 	return a.trackerMgr.IsTracked(title)
 }
 
-func (a *App) ToggleTrackAnime(title, slug, poster string) (bool, error) {
+func (a *App) ToggleTrackAnime(title, slug, poster, provider string) (bool, error) {
 	if a.trackerMgr == nil {
 		return false, fmt.Errorf("tracker manager not initialized")
 	}
-	return a.trackerMgr.ToggleTrack(title, slug, poster)
+	return a.trackerMgr.ToggleTrack(title, slug, poster, provider)
 }
 
 func (a *App) BatchTrackAnime(shows []tracker.TrackedAnime) (int, error) {
@@ -808,11 +827,6 @@ func (a *App) performTrackedCheck() {
 	}
 
 	cfg, err := config.Load()
-	if err != nil || cfg.UA == "" || cfg.CF == "" {
-		return
-	}
-
-	client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.Domain)
 	if err != nil {
 		return
 	}
@@ -822,9 +836,31 @@ func (a *App) performTrackedCheck() {
 			continue
 		}
 
-		eps, err := client.GetEpisodes(item.Slug)
+		prov := item.Provider
+		if prov == "" {
+			prov = "animepahe"
+		}
+
+		if prov == "animepahe" && (cfg.UA == "" || cfg.CF == "") {
+			continue
+		}
+
+		client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.GetProviderDomain(prov))
 		if err != nil {
-			logger.Warnf("BG_EPISODES_ERR", "Background check failed to fetch episodes for %s: %v", item.Title, err)
+			continue
+		}
+
+		var eps []api.Episode
+		if prov == "anikoto" {
+			eps, err = client.GetAnikotoEpisodes(item.Slug)
+		} else if prov == "animeheaven" {
+			eps, err = client.GetAnimeHeavenEpisodes(item.Slug)
+		} else {
+			eps, err = client.GetEpisodes(item.Slug)
+		}
+
+		if err != nil {
+			logger.Warnf("BG_EPISODES_ERR", "Background check failed to fetch episodes for %s (%s): %v", item.Title, prov, err)
 			continue
 		}
 

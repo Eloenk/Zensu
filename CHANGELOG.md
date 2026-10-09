@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-10-09
+
+### Added
+- **Netflix & Prime Video Design System:** Redesigned UI into a modern dark streaming interface with sleek poster cards, brand red accents, and responsive catalog layout.
+- **Resizable Window Support:** Enabled resizable main window with expanded default resolution (1240x780) for wide monitors.
+- **Per-Provider Tracked Storage:** Tracked anime now permanently stores its source provider for accurate multi-provider episode fetching.
+- **Auto-Retry Cookie Resolution:** Added automatic Cloudflare clearance cookie auto-solve and transparent retry on episode fetch failures.
+- **Bleach & Zoro Banner:** Updated project header graphic with high-resolution Bleach Ichigo and Zoro anime streaming banner.
+
+### Removed
+- **Cyberpunk UI Theme & Emojis:** Purged all neon glow styling, scanlines, and emojis across the entire UI, alerts, logs, and documentation.
+
 ## [1.4.4] - 2026-09-20
 
 ### Added

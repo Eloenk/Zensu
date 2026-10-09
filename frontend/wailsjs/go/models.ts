@@ -156,6 +156,7 @@ export namespace tracker {
 	    title: string;
 	    slug: string;
 	    poster: string;
+	    provider: string;
 	    lastDownloadedEp: number;
 	    totalEpisodes: number;
 	    airingStatus: string;
@@ -176,6 +177,7 @@ export namespace tracker {
 	        this.title = source["title"];
 	        this.slug = source["slug"];
 	        this.poster = source["poster"];
+	        this.provider = source["provider"];
 	        this.lastDownloadedEp = source["lastDownloadedEp"];
 	        this.totalEpisodes = source["totalEpisodes"];
 	        this.airingStatus = source["airingStatus"];

@@ -40,14 +40,16 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:         "Zensu",
-		Width:         850,
-		Height:        550,
-		DisableResize: true,
+		Width:         1240,
+		Height:        780,
+		MinWidth:      960,
+		MinHeight:     600,
+		DisableResize: false,
 		Fullscreen:    false,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 20, G: 20, B: 30, A: 255},
+		BackgroundColour: &options.RGBA{R: 20, G: 20, B: 20, A: 255},
 		OnStartup:        app.startup,
 		OnShutdown: func(ctx context.Context) {
 			tray.Quit()

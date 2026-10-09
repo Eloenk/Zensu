@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"syscall"
 
 	"zensu/internal/logger"
 )
@@ -41,7 +42,11 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Zensu Anime Downloader").Show($toast)
 `, psTitle, psMsg)
 
-		cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psScript)
+		cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", psScript)
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow:    true,
+			CreationFlags: 0x08000000,
+		}
 		if err := cmd.Run(); err != nil {
 			logger.Warnf("NOTIFY_ERR", "Failed to show Windows toast: %v", err)
 		} else {

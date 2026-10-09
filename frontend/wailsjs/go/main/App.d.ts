@@ -53,4 +53,4 @@ export function SelectDirectory():Promise<string>;
 
 export function StartDownload(arg1:string,arg2:string,arg3:string,arg4:Array<number>):Promise<void>;
 
-export function ToggleTrackAnime(arg1:string,arg2:string,arg3:string):Promise<boolean>;
+export function ToggleTrackAnime(arg1:string,arg2:string,arg3:string,arg4:string):Promise<boolean>;

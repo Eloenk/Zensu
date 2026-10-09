@@ -94,6 +94,6 @@ export function StartDownload(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['StartDownload'](arg1, arg2, arg3, arg4);
 }
 
-export function ToggleTrackAnime(arg1, arg2, arg3) {
-  return window['go']['main']['App']['ToggleTrackAnime'](arg1, arg2, arg3);
+export function ToggleTrackAnime(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ToggleTrackAnime'](arg1, arg2, arg3, arg4);
 }

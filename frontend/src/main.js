@@ -612,7 +612,7 @@ async function updateModalTrackBtnState() {
             modalTrackBtn.style.border = '1px solid #10b981';
             modalTrackBtn.style.color = '#10b981';
         } else {
-            modalTrackBtn.innerHTML = '🔔 Track Anime';
+            modalTrackBtn.innerHTML = 'Track Anime';
             modalTrackBtn.style.border = '';
             modalTrackBtn.style.color = '';
         }
@@ -636,7 +636,7 @@ async function refreshTrackedAnimeList() {
 
         trackedResults.innerHTML = '';
         if (trackedList.length === 0) {
-            trackedResults.innerHTML = '<div class="no-results" style="grid-column: 1 / -1;">No tracked anime subscriptions yet. Click 🔔 Track Anime on any search result to subscribe!</div>';
+            trackedResults.innerHTML = '<div class="no-results" style="grid-column: 1 / -1;">No tracked anime subscriptions yet. Click Track Anime on any search result to subscribe!</div>';
             return;
         }
 
@@ -671,7 +671,7 @@ async function refreshTrackedAnimeList() {
                 untrackBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     try {
-                        await ToggleTrackAnime(item.title, item.slug, item.poster);
+                        await ToggleTrackAnime(item.title, item.slug, item.poster, item.provider || 'animepahe');
                         refreshTrackedAnimeList();
                     } catch (err) {
                         showToast(`Failed to untrack: ${err}`, 'error');
@@ -727,7 +727,7 @@ if (modalTrackBtn) {
     modalTrackBtn.addEventListener('click', async () => {
         if (!currentAnimeTitle) return;
         try {
-            const isTracked = await ToggleTrackAnime(currentAnimeTitle, currentAnimeSlug, currentAnimePoster);
+            const isTracked = await ToggleTrackAnime(currentAnimeTitle, currentAnimeSlug, currentAnimePoster, currentAnimeProvider || 'animepahe');
             updateModalTrackBtnState();
             refreshTrackedAnimeList();
         } catch (err) {

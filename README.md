@@ -22,18 +22,18 @@
   <img src="assets/appicon.png" alt="Zensu Logo" width="70" style="border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08);" /><br>
   Zensu
 </h1>
-<p align="center"><b>A premium, glassmorphic dark-themed downloader for AnimePahe.</b><br>
+<p align="center"><b>A premium dark-themed streaming & downloading client for anime.</b><br>
 Features native TLS fingerprinting, automated Cloudflare solver, and modular multi-platform runtimes (Desktop GUI + CLI).
 </p>
 
 ---
 
-## ⚡ Highlights
+## Highlights
 
 <table width="100%">
   <tr>
     <td width="50%" valign="top">
-      <h3>🚀 Pure Speed & Power</h3>
+      <h3>Pure Speed & Power</h3>
       <ul>
         <li><b>Concurrent Downloads:</b> Segmented parallel streams for maximum network utilization.</li>
         <li><b>TLS Fingerprinting:</b> Client hello simulation to slip past bot blockers undetected.</li>
@@ -41,7 +41,7 @@ Features native TLS fingerprinting, automated Cloudflare solver, and modular mul
       </ul>
     </td>
     <td width="50%" valign="top">
-      <h3>🧠 Self-Healing System</h3>
+      <h3>Self-Healing System</h3>
       <ul>
         <li><b>Chrome CDP Solver:</b> Automated launch of debug browser to harvest clearance tokens.</li>
         <li><b>Auto-FFmpeg Resolver:</b> Downloads and hooks architecture-specific binaries on-the-fly.</li>
@@ -53,15 +53,15 @@ Features native TLS fingerprinting, automated Cloudflare solver, and modular mul
 
 ---
 
-## 📦 Download Releases
+## Download Releases
 
 Download pre-compiled binaries for Windows, Linux, and Android/Termux directly from the GitHub Releases page:
 
-👉 **[Download Latest Zensu Release](https://github.com/Eloenk/Zensu/releases)**
+**[Download Latest Zensu Release](https://github.com/Eloenk/Zensu/releases)**
 
 ---
 
-## 🛠️ Build & Installation
+## Build & Installation
 
 Get Zensu running on your machine with a few terminal commands:
 
@@ -93,15 +93,15 @@ All compiled binaries will be built into the `build/` directory.
 
 ---
 
-## 🎮 Interface Modes
+## Interface Modes
 
-### 🪐 Desktop GUI
+### Desktop GUI
 Launch the visual binary: `.\build\bin\zensu.exe`
 - **Zero-Click Bypass:** Verifies cookies on startup, opening Chrome in the background only if clearance expired.
-- **Glassmorphic UI:** A dark, visually pleasing user interface styled for fluid animations.
+- **Cinematic Dark UI:** A sleek, Netflix-standard dark streaming interface.
 - **Interactive Directory Picker:** Scan local directories for existing episodes dynamically.
 
-### 💻 Command-Line Interface (CLI)
+### Command-Line Interface (CLI)
 For lightweight or remote terminal environments (including Termux/SSH):
 * **Windows**: `build\bin\cli\zensu-cli.exe`
 * **Linux**: `./build/bin/cli/zensu-cli`
@@ -109,7 +109,7 @@ For lightweight or remote terminal environments (including Termux/SSH):
 
 ---
 
-## ⚙️ App Configurations
+## App Configurations
 
 Your preferences are managed automatically in OS-native app data directories:
 * **Windows path:** `%APPDATA%\zensu\config.json`
@@ -129,7 +129,7 @@ Your preferences are managed automatically in OS-native app data directories:
 
 ---
 
-## 📂 Developer Bypass Fallbacks
+## Developer Bypass Fallbacks
 
 If automatic Chrome CDP extraction is not preferred, Zensu offers two alternative manual clearance flows:
 
