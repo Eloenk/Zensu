@@ -155,6 +155,21 @@ func (m *Manager) StartWorkers() {
 	}
 }
 
+func (m *Manager) UpdateConfig(ua, cookies string) {
+	m.mu.Lock()
+	m.ua = ua
+	m.cookies = cookies
+
+	client, err := tlsclient.NewHttpClient(tlsclient.NewNoopLogger(), tlsclient.WithClientProfile(profiles.Chrome_124))
+	if err == nil {
+		m.client = client
+	}
+	m.mu.Unlock()
+
+	m.seedCookies("https://kwik.cx")
+	m.seedCookies("https://animepahe.pw")
+}
+
 func (m *Manager) SetMaxParallel(n int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

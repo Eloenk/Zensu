@@ -484,6 +484,7 @@ func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []f
 		a.dlManager = dl.NewManager(cfg.MaxParallel, cfg.UA, cfg.Cookies)
 	} else {
 		a.dlManager.SetMaxParallel(cfg.MaxParallel)
+		a.dlManager.UpdateConfig(cfg.UA, cfg.Cookies)
 	}
 
 	logger.Infof("DOWNLOAD_BATCH_START", "Starting download batch of %d episodes for anime %q (slug: %q, provider: %q)", len(epNums), animeTitle, slug, p)
@@ -580,7 +581,7 @@ func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []f
 				} else {
 					var candidates []api.KwikCandidate
 					for attempt := 1; attempt <= 6; attempt++ {
-						candidates, err = a.client.GetKwikLinks(slug, ep.Session)
+						candidates, err = client.GetKwikLinks(slug, ep.Session)
 						if err == nil && len(candidates) > 0 {
 							break
 						}
