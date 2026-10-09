@@ -261,28 +261,7 @@ func (a *App) GetEpisodes(animeTitle, slug string, provider string) ([]EpisodeIn
 	}
 	logger.Infof("APP_EPISODES_OK", "Fetched %d episode(s) for %q", len(eps), animeTitle)
 
-	sanitizedTitle := sanitizeName(animeTitle)
-	existingEps := make(map[float64]bool)
-	animeDir := filepath.Join(cfg.DownloadDir, sanitizedTitle)
-	if _, err := os.Stat(animeDir); err == nil {
-		files, _ := os.ReadDir(animeDir)
-		pattern := fmt.Sprintf(`^%s E(\d+(\.\d+)?)\.mp4$`, regexp.QuoteMeta(sanitizedTitle))
-		re, err := regexp.Compile(pattern)
-		if err == nil {
-			for _, f := range files {
-				if f.IsDir() {
-					continue
-				}
-				m := re.FindStringSubmatch(f.Name())
-				if len(m) > 1 {
-					if val, err := strconv.ParseFloat(m[1], 64); err == nil {
-						existingEps[val] = true
-					}
-				}
-			}
-		}
-	}
-
+	existingEps := scanExistingEpisodes(cfg.DownloadDir, animeTitle)
 	out := make([]EpisodeInfo, len(eps))
 	for i, e := range eps {
 		out[i] = EpisodeInfo{
@@ -292,6 +271,113 @@ func (a *App) GetEpisodes(animeTitle, slug string, provider string) ([]EpisodeIn
 		}
 	}
 	return out, nil
+}
+
+func scanExistingEpisodes(downloadDir, animeTitle string) map[float64]bool {
+	existingEps := make(map[float64]bool)
+	sanitizedTitle := sanitizeName(animeTitle)
+
+	dirsToCheck := []string{
+		filepath.Join(downloadDir, sanitizedTitle),
+		filepath.Join(downloadDir, animeTitle),
+		downloadDir,
+	}
+
+	if home, err := os.UserHomeDir(); err == nil {
+		defaultDir := filepath.Join(home, "Videos", "Anime")
+		dirsToCheck = append(dirsToCheck,
+			filepath.Join(defaultDir, sanitizedTitle),
+			filepath.Join(defaultDir, animeTitle),
+			defaultDir,
+		)
+		for _, rootDir := range []string{downloadDir, defaultDir} {
+			if rootDir == "" {
+				continue
+			}
+			if subEntries, err := os.ReadDir(rootDir); err == nil {
+				lowerTitle := strings.ToLower(sanitizedTitle)
+				words := strings.Fields(lowerTitle)
+				for _, sub := range subEntries {
+					if sub.IsDir() {
+						subLower := strings.ToLower(sub.Name())
+						match := strings.Contains(subLower, lowerTitle)
+						if !match && len(words) > 0 {
+							for _, w := range words {
+								if len(w) >= 3 && strings.Contains(subLower, w) {
+									match = true
+									break
+								}
+							}
+						}
+						if match {
+							dirsToCheck = append(dirsToCheck, filepath.Join(rootDir, sub.Name()))
+						}
+					}
+				}
+			}
+		}
+	}
+
+	epNumRe := regexp.MustCompile(`(?i)(?:^|[\s_\-\.\(\[])(?:E|Ep|Episode|#)?\s*(\d+(?:\.\d+)?)(?:v\d+)?(?:[\s_\-\.\)\]]|$)`)
+
+	visitedDirs := make(map[string]bool)
+	for _, dir := range dirsToCheck {
+		if dir == "" {
+			continue
+		}
+		dir = filepath.Clean(dir)
+		if visitedDirs[dir] {
+			continue
+		}
+		visitedDirs[dir] = true
+
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			ext := strings.ToLower(filepath.Ext(name))
+			if ext != ".mp4" && ext != ".mkv" && ext != ".avi" && ext != ".webm" && ext != ".flv" && ext != ".ts" {
+				continue
+			}
+
+			if dir == downloadDir || strings.HasSuffix(dir, "Anime") {
+				lowerName := strings.ToLower(name)
+				lowerTitle := strings.ToLower(sanitizedTitle)
+				words := strings.Fields(lowerTitle)
+				if len(words) > 0 {
+					matchedWord := false
+					for _, w := range words {
+						if len(w) >= 3 && strings.Contains(lowerName, w) {
+							matchedWord = true
+							break
+						}
+					}
+					if !matchedWord && !strings.Contains(lowerName, lowerTitle) && !strings.Contains(lowerName, strings.ToLower(animeTitle)) {
+						if len(words) > 0 && !strings.Contains(lowerName, words[0]) {
+							continue
+						}
+					}
+				}
+			}
+
+			matches := epNumRe.FindAllStringSubmatch(name, -1)
+			for _, m := range matches {
+				if len(m) > 1 {
+					if val, err := strconv.ParseFloat(m[1], 64); err == nil && val > 0 && val < 5000 {
+						existingEps[val] = true
+					}
+				}
+			}
+		}
+	}
+
+	return existingEps
 }
 
 func (a *App) SelectDirectory() (string, error) {
@@ -868,25 +954,7 @@ func (a *App) performTrackedCheck() {
 		var newEps []float64
 		maxEp := item.LastDownloadedEp
 
-		// Determine existing files on disk
-		sanitizedTitle := sanitizeName(item.Title)
-		animeDir := filepath.Join(cfg.DownloadDir, sanitizedTitle)
-		existingEps := make(map[float64]bool)
-		if _, err := os.Stat(animeDir); err == nil {
-			files, _ := os.ReadDir(animeDir)
-			pattern := fmt.Sprintf(`^%s E(\d+(\.\d+)?)\.mp4$`, regexp.QuoteMeta(sanitizedTitle))
-			re, err := regexp.Compile(pattern)
-			if err == nil {
-				for _, f := range files {
-					m := re.FindStringSubmatch(f.Name())
-					if len(m) > 1 {
-						if val, err := strconv.ParseFloat(m[1], 64); err == nil {
-							existingEps[val] = true
-						}
-					}
-				}
-			}
-		}
+		existingEps := scanExistingEpisodes(cfg.DownloadDir, item.Title)
 
 		for _, e := range eps {
 			if e.Episode > item.LastDownloadedEp && !existingEps[e.Episode] {

@@ -539,6 +539,41 @@ button:disabled {
     gap: 14px;
 }
 
+.btn-retry,
+.btn-cancel {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    padding: 4px !important;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: color 0.2s ease, transform 0.2s ease;
+    border-radius: 4px;
+    box-shadow: none !important;
+}
+
+.btn-retry:hover {
+    color: var(--accent-blue);
+    background: transparent !important;
+    transform: rotate(45deg);
+}
+
+.btn-cancel:hover {
+    color: var(--accent-red);
+    background: transparent !important;
+    transform: scale(1.2);
+}
+
+.btn-retry svg,
+.btn-cancel svg {
+    display: block;
+    fill: none;
+    stroke: currentColor;
+}
+
 .group-eta {
     font-size: 0.8rem;
     color: var(--text-secondary);
@@ -1000,25 +1035,30 @@ body.is-offline {
 }
 
 .btn-untrack-inline {
-    background: rgba(239, 68, 68, 0.15);
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
     color: #ef4444;
-    font-size: 0.85rem;
-    font-weight: 700;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1;
+    width: 22px;
+    height: 22px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background 0.2s;
+    transition: transform 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+    opacity: 0.85;
+    box-shadow: none !important;
 }
 
 .btn-untrack-inline:hover {
-    background: #ef4444;
-    color: #ffffff;
+    background: transparent !important;
+    color: #ff2222;
+    opacity: 1;
+    transform: scale(1.25);
 }
 
 .tracked-countdown {
