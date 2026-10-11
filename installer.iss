@@ -1,6 +1,12 @@
+#ifndef AppVersion
+#define FileHandle FileOpen("VERSION")
+#define AppVersion Trim(FileRead(FileHandle))
+#expr FileClose(FileHandle)
+#endif
+
 [Setup]
 AppName=Zensu
-AppVersion=1.5.0
+AppVersion={#AppVersion}
 DefaultDirName={localappdata}\Programs\Zensu
 DefaultGroupName=Zensu
 UninstallDisplayIcon={app}\zensu.exe

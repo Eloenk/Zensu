@@ -157,7 +157,7 @@ func FetchJikanMetadata(title string) (*MetadataResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "ZensuApp/1.3.2")
+	req.Header.Set("User-Agent", "ZensuApp")
 
 	resp, err := client.Do(req)
 	if err != nil {

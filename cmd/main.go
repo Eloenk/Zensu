@@ -31,7 +31,14 @@ func sanitizeName(name string) string {
 	return strings.TrimSpace(name)
 }
 
+var version = "1.5.0"
+
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "-v" || os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Printf("Zensu CLI v%s\n", version)
+		return
+	}
+
 	if err := logger.Init(); err != nil {
 		fmt.Printf("Error initializing logger: %v\n", err)
 	}

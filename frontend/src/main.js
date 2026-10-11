@@ -21,7 +21,8 @@ import {
     BatchTrackAnime,
     CheckTrackedUpdatesNow,
     CheckAppUpdate,
-    InstallAppUpdate
+    InstallAppUpdate,
+    GetAppVersion
 } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 
@@ -561,6 +562,7 @@ if (btnTrackAll) {
                 title: item.title,
                 slug: item.session,
                 poster: item.poster,
+                provider: currentAnimeProvider || 'animepahe',
                 lastDownloadedEp: 0,
                 totalEpisodes: 0,
                 airingStatus: 'RELEASING',
@@ -1335,6 +1337,23 @@ loadSettings();
 refreshTrackedAnimeList();
 updateDownloadsProgress();
 setInterval(updateDownloadsProgress, 1000);
+
+async function initAppVersion() {
+    try {
+        const v = await GetAppVersion();
+        const footer = document.querySelector('.sidebar-footer');
+        if (footer && v) {
+            footer.textContent = `v${v}`;
+        }
+    } catch (e) {
+        console.error('Failed to get app version:', e);
+    }
+}
+initAppVersion();
+
+EventsOn('tracker-updated', () => {
+    refreshTrackedAnimeList();
+});
 
 // Connectivity checks
 let isOnline = true;

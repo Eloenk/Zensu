@@ -21,6 +21,8 @@ export function FetchCredentialsFromBrowser():Promise<Record<string, string>>;
 
 export function GetAnimeMetadata(arg1:string):Promise<api.MetadataResult>;
 
+export function GetAppVersion():Promise<string>;
+
 export function GetConfig():Promise<config.Config>;
 
 export function GetDetectedBrowsers():Promise<Array<Record<string, string>>>;

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.1] - 2026-10-11
+
+### Added
+- **Centralized Versioning System:** Single source of truth `VERSION` file embedding version across desktop binary, Wails bindings, UI, CLI binaries, build scripts, and installer.
+- **Tracked Anime Self-Healing:** Automatic detection and re-resolution of expired or rotated AnimePahe session slugs on 404 responses.
+- **Real-Time Tracker Updates:** Background monitoring now emits runtime events to immediately update the tracked anime cards and next episode countdowns.
+
+### Fixed
+- **Multi-Provider Auto-Download:** Fixed background monitor omitting provider parameter, ensuring Anikoto and AnimeHeaven series download correctly.
+- **Batch Tracking Provider Preservation:** Fixed "Track All" omitting active provider on search results.
+- **Cloudflare Expiration Recovery:** Added automated credential re-resolution and retry during background tracking checks.
+
 ## [1.5.0] - 2026-10-09
 
 ### Added

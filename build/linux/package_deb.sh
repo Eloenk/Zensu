@@ -13,10 +13,15 @@ mkdir -p "$PKG_DIR/usr/bin"
 mkdir -p "$PKG_DIR/usr/share/applications"
 mkdir -p "$PKG_DIR/usr/share/pixmaps"
 
+APP_VERSION="1.5.0"
+if [ -f "$BASE_DIR/VERSION" ]; then
+    APP_VERSION=$(cat "$BASE_DIR/VERSION" | tr -d '[:space:]')
+fi
+
 # Write DEBIAN/control file
 cat <<EOT > "$PKG_DIR/DEBIAN/control"
 Package: zensu
-Version: 1.5.0
+Version: $APP_VERSION
 Section: utils
 Priority: optional
 Architecture: amd64

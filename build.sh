@@ -32,20 +32,25 @@ if ! command -v wails &> /dev/null; then
     fi
 fi
 
-echo "Building Zensu Desktop App via Wails..."
+APP_VERSION="1.5.0"
+if [ -f "VERSION" ]; then
+    APP_VERSION=$(cat VERSION | tr -d '[:space:]')
+fi
+
+echo "Building Zensu Desktop App v$APP_VERSION via Wails..."
 $WAILS_CMD build -clean
 
-echo "Building CLI versions..."
+echo "Building CLI versions (v$APP_VERSION)..."
 mkdir -p build/bin/cli
 
 echo "  -> Windows x64 CLI..."
-GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o build/bin/cli/zensu-cli.exe ./cmd/
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.version=$APP_VERSION" -o build/bin/cli/zensu-cli.exe ./cmd/
 
 echo "  -> Linux x64 CLI..."
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o build/bin/cli/zensu-cli ./cmd/
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=$APP_VERSION" -o build/bin/cli/zensu-cli ./cmd/
 
 echo "  -> Android / Termux ARM64 CLI..."
-GOOS=android GOARCH=arm64 go build -ldflags="-s -w" -o build/bin/cli/zensu-termux ./cmd/
+GOOS=android GOARCH=arm64 go build -ldflags="-s -w -X main.version=$APP_VERSION" -o build/bin/cli/zensu-termux ./cmd/
 
 # Clean root zensu binaries
 rm -f zensu.exe zensu-cli.exe 2>/dev/null || true

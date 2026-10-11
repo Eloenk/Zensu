@@ -229,6 +229,17 @@ func (m *Manager) UpdateLastDownloaded(title string, epNum float64) {
 	}
 }
 
+func (m *Manager) UpdateSlug(title, newSlug string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if item, ok := m.items[title]; ok && newSlug != "" {
+		item.Slug = newSlug
+		item.LastCheckedAt = time.Now().Format(time.RFC3339)
+		_ = m.saveLocked()
+	}
+}
+
 func (m *Manager) UpdateFullMetadata(title string, meta *api.MetadataResult) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -238,12 +249,8 @@ func (m *Manager) UpdateFullMetadata(title string, meta *api.MetadataResult) {
 		if meta.TotalEpisodes > 0 {
 			item.TotalEpisodes = meta.TotalEpisodes
 		}
-		if meta.NextEpisodeNum > 0 {
-			item.NextEpisodeNum = meta.NextEpisodeNum
-		}
-		if meta.NextAiringAt > 0 {
-			item.NextAiringAt = meta.NextAiringAt
-		}
+		item.NextEpisodeNum = meta.NextEpisodeNum
+		item.NextAiringAt = meta.NextAiringAt
 		if meta.Score > 0 {
 			item.Score = meta.Score
 		}

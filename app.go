@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"fmt"
 	"math"
@@ -30,7 +31,14 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-const AppVersion = "1.5.0"
+//go:embed VERSION
+var appVersionRaw string
+
+var AppVersion = strings.TrimSpace(appVersionRaw)
+
+func (a *App) GetAppVersion() string {
+	return AppVersion
+}
 
 type App struct {
 	ctx        context.Context
@@ -201,6 +209,32 @@ func sanitizeName(name string) string {
 	return strings.TrimSpace(name)
 }
 
+func (a *App) resolveAnimePaheSlug(client *api.Client, title string) (string, error) {
+	if client == nil || title == "" {
+		return "", fmt.Errorf("invalid client or title")
+	}
+	results, err := client.Search(title)
+	if err != nil {
+		return "", err
+	}
+	if len(results) == 0 {
+		return "", fmt.Errorf("no results found on search")
+	}
+
+	targetInfo := parseAnimeTitleInfo(title)
+	for _, r := range results {
+		if strings.EqualFold(strings.TrimSpace(r.Title), strings.TrimSpace(title)) {
+			return r.Session, nil
+		}
+	}
+	for _, r := range results {
+		if isMatchingAnime(targetInfo, r.Title) {
+			return r.Session, nil
+		}
+	}
+	return results[0].Session, nil
+}
+
 func (a *App) GetEpisodes(animeTitle, slug string, provider string) ([]EpisodeInfo, error) {
 	logger.Infof("APP_EPISODES", "Fetching episodes for %q (slug: %s, provider: %s)", animeTitle, slug, provider)
 	cfg, err := config.Load()
@@ -244,14 +278,28 @@ func (a *App) GetEpisodes(animeTitle, slug string, provider string) ([]EpisodeIn
 		eps, err = client.GetEpisodes(slug)
 	}
 
-	// Auto-retry once if Cloudflare clearance cookie expired
-	if err != nil && p == "animepahe" && (strings.Contains(err.Error(), "cookies expired") || strings.Contains(err.Error(), "HTML")) {
+	if err != nil && p == "animepahe" && (strings.Contains(err.Error(), "cookies expired") || strings.Contains(err.Error(), "HTML") || strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "CF blocked")) {
 		logger.Warnf("APP_EPISODES_CF_RETRY", "Cloudflare cookie expired for %s; attempting automatic credential resolution...", animeTitle)
 		a.autoCheckAndResolveCredentials()
 		if cfgRetry, errRetry := config.Load(); errRetry == nil {
 			if clientRetry, errClient := api.NewClient(cfgRetry.UA, cfgRetry.Cookies, cfgRetry.GetProviderDomain(p)); errClient == nil {
-				eps, err = clientRetry.GetEpisodes(slug)
+				client = clientRetry
+				eps, err = client.GetEpisodes(slug)
 			}
+		}
+	}
+
+	if err != nil && p == "animepahe" && (strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found")) {
+		logger.Warnf("APP_EPISODES_RESOLVE_SLUG", "Slug expired or 404 for %s (old slug: %s); re-resolving slug...", animeTitle, slug)
+		if newSlug, rErr := a.resolveAnimePaheSlug(client, animeTitle); rErr == nil && newSlug != "" {
+			slug = newSlug
+			a.slugsMu.Lock()
+			a.animeSlugs[animeTitle] = newSlug
+			a.slugsMu.Unlock()
+			if a.trackerMgr != nil {
+				a.trackerMgr.UpdateSlug(animeTitle, newSlug)
+			}
+			eps, err = client.GetEpisodes(newSlug)
 		}
 	}
 
@@ -667,6 +715,14 @@ func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []f
 	}
 
 	p := strings.ToLower(strings.TrimSpace(provider))
+	if p == "" && a.trackerMgr != nil {
+		for _, item := range a.trackerMgr.GetList() {
+			if item.Title == animeTitle && item.Provider != "" {
+				p = item.Provider
+				break
+			}
+		}
+	}
 	if p == "" {
 		p = cfg.Provider
 	}
@@ -690,6 +746,18 @@ func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []f
 	} else {
 		a.dlManager.SetMaxParallel(cfg.MaxParallel)
 		a.dlManager.UpdateConfig(cfg.UA, cfg.Cookies)
+	}
+
+	if a.trackerMgr != nil && a.trackerMgr.IsTracked(animeTitle) {
+		maxEp := 0.0
+		for _, ep := range epNums {
+			if ep > maxEp {
+				maxEp = ep
+			}
+		}
+		if maxEp > 0 {
+			a.trackerMgr.UpdateLastDownloaded(animeTitle, maxEp)
+		}
 	}
 
 	logger.Infof("DOWNLOAD_BATCH_START", "Starting download batch of %d episodes for anime %q (slug: %q, provider: %q)", len(epNums), animeTitle, slug, p)
@@ -718,6 +786,20 @@ func (a *App) StartDownload(animeTitle, slug string, provider string, epNums []f
 			eps, err = client.GetAnimeHeavenEpisodes(slug)
 		} else {
 			eps, err = client.GetEpisodes(slug)
+		}
+
+		if err != nil && p == "animepahe" && (strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found")) {
+			logger.Warnf("APP_START_DOWNLOAD_RESOLVE_SLUG", "Slug expired or 404 for %s (old slug: %s); re-resolving slug...", animeTitle, slug)
+			if newSlug, rErr := a.resolveAnimePaheSlug(client, animeTitle); rErr == nil && newSlug != "" {
+				slug = newSlug
+				a.slugsMu.Lock()
+				a.animeSlugs[animeTitle] = newSlug
+				a.slugsMu.Unlock()
+				if a.trackerMgr != nil {
+					a.trackerMgr.UpdateSlug(animeTitle, newSlug)
+				}
+				eps, err = client.GetEpisodes(newSlug)
+			}
 		}
 
 		if err != nil {
@@ -910,6 +992,17 @@ func (a *App) RetryFailed(animeTitle string) error {
 	a.slugsMu.Lock()
 	slug, ok := a.animeSlugs[animeTitle]
 	a.slugsMu.Unlock()
+	prov := ""
+	if !ok && a.trackerMgr != nil {
+		for _, item := range a.trackerMgr.GetList() {
+			if item.Title == animeTitle {
+				slug = item.Slug
+				prov = item.Provider
+				ok = true
+				break
+			}
+		}
+	}
 	if !ok {
 		return fmt.Errorf("anime slug not found; search and start the download first")
 	}
@@ -930,7 +1023,7 @@ func (a *App) RetryFailed(animeTitle string) error {
 		return fmt.Errorf("no failed or active downloads to retry for this anime")
 	}
 
-	return a.StartDownload(animeTitle, slug, "", epNums)
+	return a.StartDownload(animeTitle, slug, prov, epNums)
 }
 
 func (a *App) CancelAnimeDownloads(animeTitle string) error {
@@ -1004,8 +1097,7 @@ func (a *App) CheckTrackedUpdatesNow() error {
 }
 
 func (a *App) startBackgroundMonitor() {
-	// Initial delay to let application start up cleanly
-	time.Sleep(10 * time.Second)
+	time.Sleep(25 * time.Second)
 
 	for {
 		cfg, err := config.Load()
@@ -1048,7 +1140,13 @@ func (a *App) performTrackedCheck() {
 		}
 
 		if prov == "animepahe" && (cfg.UA == "" || cfg.CF == "") {
-			continue
+			a.autoCheckAndResolveCredentials()
+			if cfgRetry, errRetry := config.Load(); errRetry == nil {
+				cfg = cfgRetry
+			}
+			if cfg.UA == "" || cfg.CF == "" {
+				continue
+			}
 		}
 
 		client, err := api.NewClient(cfg.UA, cfg.Cookies, cfg.GetProviderDomain(prov))
@@ -1063,6 +1161,30 @@ func (a *App) performTrackedCheck() {
 			eps, err = client.GetAnimeHeavenEpisodes(item.Slug)
 		} else {
 			eps, err = client.GetEpisodes(item.Slug)
+		}
+
+		if err != nil && prov == "animepahe" && (strings.Contains(err.Error(), "cookies expired") || strings.Contains(err.Error(), "HTML") || strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "CF blocked")) {
+			logger.Warnf("BG_EPISODES_CF_RETRY", "Cloudflare cookie expired for %s; attempting automatic credential resolution...", item.Title)
+			a.autoCheckAndResolveCredentials()
+			if cfgRetry, errRetry := config.Load(); errRetry == nil {
+				cfg = cfgRetry
+				if clientRetry, errClient := api.NewClient(cfgRetry.UA, cfgRetry.Cookies, cfgRetry.GetProviderDomain(prov)); errClient == nil {
+					client = clientRetry
+					eps, err = client.GetEpisodes(item.Slug)
+				}
+			}
+		}
+
+		if err != nil && prov == "animepahe" && (strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found")) {
+			logger.Warnf("BG_EPISODES_RESOLVE_SLUG", "Slug expired or 404 for %s (old slug: %s); re-resolving slug...", item.Title, item.Slug)
+			if newSlug, rErr := a.resolveAnimePaheSlug(client, item.Title); rErr == nil && newSlug != "" {
+				item.Slug = newSlug
+				a.slugsMu.Lock()
+				a.animeSlugs[item.Title] = newSlug
+				a.slugsMu.Unlock()
+				a.trackerMgr.UpdateSlug(item.Title, newSlug)
+				eps, err = client.GetEpisodes(newSlug)
+			}
 		}
 
 		if err != nil {
@@ -1084,6 +1206,15 @@ func (a *App) performTrackedCheck() {
 			}
 		}
 
+		for ep := range existingEps {
+			if ep > maxEp {
+				maxEp = ep
+			}
+		}
+		if maxEp > item.LastDownloadedEp {
+			a.trackerMgr.UpdateLastDownloaded(item.Title, maxEp)
+		}
+
 		if len(newEps) > 0 {
 			msg := fmt.Sprintf("%d new episode(s) released for %s!", len(newEps), item.Title)
 			logger.Infof("BG_NEW_EPISODE", "%s", msg)
@@ -1091,15 +1222,18 @@ func (a *App) performTrackedCheck() {
 
 			if cfg.AutoDownloadTracked && item.AutoDownload {
 				logger.Infof("BG_AUTO_DOWNLOAD", "Auto-starting download of %d episodes for %s", len(newEps), item.Title)
-				if err := a.StartDownload(item.Title, item.Slug, "", newEps); err == nil {
+				if err := a.StartDownload(item.Title, item.Slug, prov, newEps); err == nil {
 					a.trackerMgr.UpdateLastDownloaded(item.Title, maxEp)
 				}
 			}
 		}
 
-		// Update AniList & Jikan metadata status
 		if meta, err := api.FetchAnimeMetadata(item.Title); err == nil && meta != nil {
 			a.trackerMgr.UpdateFullMetadata(item.Title, meta)
 		}
+	}
+
+	if a.ctx != nil {
+		wailsRuntime.EventsEmit(a.ctx, "tracker-updated")
 	}
 }
